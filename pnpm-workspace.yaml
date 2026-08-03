@@ -1,0 +1,8 @@
+# tsup required
+allowBuilds:
+  esbuild: true
+
+packages:
+  - "packages/*"
+  - "scripts/*"
+  - "playground"

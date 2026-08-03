@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json.schemastore.org/prettierrc",
+  "semi": false,
+  "tabWidth": 2,
+  "printWidth": 100,
+  "singleQuote": false,
+  "trailingComma": "es5",
+  "overrides": [
+    {
+      "files": "**/*.md",
+      "options": {
+        "parser": "markdown",
+        "proseWrap": "never"
+      }
+    },
+    {
+      "files": [".prettierrc", ".releaserc"],
+      "options": {
+        "parser": "json"
+      }
+    },
+    {
+      "files": [".hintrc"],
+      "options": {
+        "parser": "jsonc",
+        "trailingComma": "none"
+      }
+    }
+  ]
+}

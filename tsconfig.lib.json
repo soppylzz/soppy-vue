@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "es2022",
+    "outDir": "dist",
+    "rootDir": "packages",
+    "types": ["node"],
+    "lib": ["dom", "esnext"],
+    "paths": {
+      "@soppy-vue/*": ["./packages/*/src"]
+    }
+  },
+  "include": ["packages/*/src"]
+}

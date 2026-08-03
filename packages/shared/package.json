@@ -1,0 +1,38 @@
+{
+  "name": "@soppy-vue/shared",
+  "version": "0.0.0",
+  "description": "Shared utils across @soppy-vue/*",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "buildOptions": {
+    "formats": [
+      "esm",
+      "cjs"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/source-readers/soppy-vue.git",
+    "directory": "packages/shared"
+  },
+  "keywords": [
+    "soppy-vue",
+    "mini-vue"
+  ],
+  "author": "soppylzz",
+  "license": "MIT"
+}

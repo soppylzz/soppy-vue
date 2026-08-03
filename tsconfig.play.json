@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "playground",
+    "types": ["node"],
+    "lib": ["esnext", "dom"]
+  },
+  "include": ["playground/*"]
+}

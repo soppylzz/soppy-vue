@@ -1,0 +1,50 @@
+{
+  "private": true,
+  "packageManager": "pnpm@11.17.0",
+  "scripts": {
+    "build:dev": "pnpm run -C scripts/build build --dev",
+    "build:prod": "pnpm run -C scripts/build build --prod",
+    "format": "prettier --write --experimental-cli .",
+    "lint": "eslint . --ext .js,.mjs,.cjs,.ts,.json,.md --max-warnings 0 --concurrency auto",
+    "lint:fix": "pnpm run lint --fix",
+    "commit": "cz",
+    "version": "changeset version",
+    "release": "changeset publish",
+    "play:web": "pnpm run -C playground web",
+    "play:node": "pnpm run -C playground node",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@changesets/changelog-github": "^0.7.0",
+    "@changesets/cli": "^2.31.1",
+    "@commitlint/cli": "^21.2.1",
+    "@commitlint/config-conventional": "^21.2.0",
+    "@commitlint/cz-commitlint": "^21.2.0",
+    "@soppy-vue/build": "workspace:*",
+    "@soppy-vue/eslint": "workspace:*",
+    "@types/node": "^26.1.2",
+    "commitizen": "^4.3.2",
+    "eslint": "^9.39.5",
+    "husky": "^9.1.7",
+    "inquirer": "^9.3.8",
+    "lint-staged": "^17.2.0",
+    "lodash-unified": "^1.0.3",
+    "prettier": "^3.9.6",
+    "rolldown": "^1.2.1",
+    "typescript": "^6.0.3"
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs,ts,json,md}": [
+      "eslint --fix --concurrency=auto",
+      "prettier --write --experimental-cli"
+    ]
+  },
+  "config": {
+    "commitizen": {
+      "path": "@commitlint/cz-commitlint"
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

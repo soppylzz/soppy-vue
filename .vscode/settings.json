@@ -1,0 +1,31 @@
+{
+  // use workspace TypeScript version instead of VSCode built-in
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+
+  // prettier formatter settings
+  "editor.formatOnSave": true,
+  "editor.formatOnSaveMode": "file",
+  "prettier.requireConfig": true,
+
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  // or specify a formatter separately for single language
+  // "[javascript]": {
+  //   "editor.defaultFormatter": "esbenp.prettier-vscode"
+  // }
+
+  // to avoid-webhint error of strict and consistent-casing
+  // see https://github.com/microsoft/vscode-edge-devtools/issues/1162 for the discussion.
+  // "vscode-edge-devtools.webhint": false
+
+  "json.schemaDownload.enable": true,
+  "json.schemaDownload.trustedDomains": {
+    "https://schemastore.azurewebsites.net/": true,
+    "https://raw.githubusercontent.com/microsoft/vscode/": true,
+    "https://raw.githubusercontent.com/devcontainers/spec/": true,
+    "https://www.schemastore.org/": true,
+    "https://json.schemastore.org/": true,
+    "https://json-schema.org/": true,
+    "https://developer.microsoft.com/json-schemas/": true,
+    "https://unpkg.com/": true
+  }
+}

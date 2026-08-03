@@ -1,0 +1,58 @@
+name: cd
+
+on:
+  workflow_run:
+    workflows: [ci]
+    branches: [main]
+    types: [completed]
+
+concurrency:
+  group: cd
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  lib:
+    name: release npm packages
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install deps via lockfile
+        run: pnpm install --frozen-lockfile
+
+      - name: Build npm packages
+        run: pnpm run build:prod
+
+      - name: Version / publish via changesets
+        uses: changesets/action@v1
+        with:
+          title: "Changesets"
+          commit: "chore: version packages [changesets]"
+          version: pnpm run version # consume add changesets, send an auto PR
+          publish: pnpm run release # release and tag
+          commitMode: "github-api"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  docs:
+    name: release docs site
+    runs-on: ubuntu-latest
+    needs: [lib]
+
+    steps:
+      - name: Publish docs site via github pages
+        run: echo "[Mock] Publish docs site via github pages"

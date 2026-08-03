@@ -1,0 +1,16 @@
+{
+  "name": "@soppy-vue/play",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "web": "vite",
+    "node": "echo \"node dev running...\""
+  },
+  "dependencies": {
+    "soppy-vue": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
+  }
+}
