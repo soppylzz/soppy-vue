@@ -24,4 +24,8 @@ function reactive(target: unknown) {
   return createReactiveObject(target)
 }
 
-export { reactive }
+function toReactive(target: unknown) {
+  return isObject(target) ? reactive(target) : target
+}
+
+export { reactive, toReactive }

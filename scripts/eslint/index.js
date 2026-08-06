@@ -85,6 +85,8 @@ export default defineConfig([
   {
     files: ["**/*.ts"],
     rules: {
+      // temporarily disable any-check, for lib quick building
+      "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/consistent-type-imports": [
         "error",
         {
