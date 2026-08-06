@@ -9,7 +9,8 @@ import { default as jsonc } from "eslint-plugin-jsonc"
 export default defineConfig([
   // defineConfig use jsDoc to validate configs
   {
-    ignores: ["dist", "node_modules", "pnpm-lock.yaml"],
+    // must include "**/" wildcard to ignore `dist`, `node_modules` at all levels
+    ignores: ["**/dist", "**/node_modules", "pnpm-lock.yaml"],
   },
 
   // json5 parser allows: comments, trailing commas, unquoted keys

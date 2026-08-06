@@ -16,7 +16,7 @@ interface BuildArgs {
 interface PackageInfo {
   path: string
   name: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   pkg: Record<string, any>
 }
 

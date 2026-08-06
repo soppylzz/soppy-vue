@@ -1,8 +1,14 @@
+import { DirtyLevels } from "./constants"
 import type { Dep } from "./dep"
 
 let activeEffect: ReactiveEffect | null = null
 
-type EffectFunction = () => void
+/**
+ * effect function, general return:
+ * - component structure
+ * - computed value
+ */
+type EffectFunction = () => any
 type EffectScheduler = (...args: unknown[]) => unknown
 
 interface ReactiveEffectOptions {
@@ -15,12 +21,15 @@ interface ReactiveEffectOptions {
 class ReactiveEffect {
   // represent for effect.run() execute times
   _trackId = 0
+  _running = 0
 
   _depsLength = 0
   deps: Dep[] = []
 
-  _running = 0
-  public active = true
+  active = true
+
+  // support for computedRefImpl
+  _dirtyLevel = DirtyLevels.DIRTY
 
   /**
    * @param fn effect function, which track execute in
@@ -30,6 +39,10 @@ class ReactiveEffect {
     public fn: EffectFunction,
     public scheduler: EffectScheduler
   ) {}
+
+  get dirty() {
+    return this._dirtyLevel === DirtyLevels.DIRTY
+  }
 
   #preClean() {
     this._depsLength = 0
@@ -48,6 +61,8 @@ class ReactiveEffect {
   }
 
   run() {
+    this._dirtyLevel = DirtyLevels.NO_DIRTY
+
     // STEP: 3. effect execution
     if (!this.active) {
       return this.fn()
@@ -72,21 +87,25 @@ class ReactiveEffect {
   }
 }
 
+/**
+ * standard way to create effectObj, characteristics:
+ * - automatically collect deps when creating
+ * - scheduler equivalent to effect function
+ */
 function effect(fn: EffectFunction, options?: ReactiveEffectOptions) {
-  const runner = new ReactiveEffect(fn, () => {
-    runner.run()
+  const _effect = new ReactiveEffect(fn, () => {
+    _effect.run()
   })
   // track at init, ensure track once at least
-  runner.run()
+  _effect.run()
 
   if (options) {
     // update runner.scheduler
-    Object.assign(runner, options)
+    Object.assign(_effect, options)
   }
 
-  // return run(), which this point at effectObj
-  const run = Object.assign(runner.run.bind(runner), { runner })
-  return run
+  // return run(), which `this` point at effectObj
+  return Object.assign(_effect.run.bind(_effect), { effect: _effect })
 }
 
 function cleanDepEffect(dep: Dep, effect: ReactiveEffect) {
@@ -125,12 +144,16 @@ function trackEffect(effect: ReactiveEffect, dep: Dep) {
   }
 }
 
-function triggerEffect(dep: Dep) {
+function triggerEffects(dep: Dep) {
   for (const effect of dep.keys()) {
+    if (effect._dirtyLevel < DirtyLevels.DIRTY) {
+      effect._dirtyLevel = DirtyLevels.DIRTY
+    }
+
     if (effect.scheduler && effect._running === 0) {
       effect.scheduler()
     }
   }
 }
 
-export { activeEffect, effect, trackEffect, triggerEffect, ReactiveEffect }
+export { activeEffect, effect, trackEffect, triggerEffects, ReactiveEffect }

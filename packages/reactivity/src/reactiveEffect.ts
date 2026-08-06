@@ -1,6 +1,6 @@
 import type { Dep } from "./dep"
 import { createDep } from "./dep"
-import { activeEffect, trackEffect, triggerEffect } from "./effect"
+import { activeEffect, trackEffect, triggerEffects } from "./effect"
 
 const trackMap = new WeakMap<object, Map<PropertyKey, Dep | undefined>>()
 
@@ -33,7 +33,7 @@ function trigger(target: object, key: PropertyKey) {
 
   const dep = depsMap.get(key)
   if (dep) {
-    triggerEffect(dep)
+    triggerEffects(dep)
   }
 }
 

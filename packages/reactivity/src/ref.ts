@@ -1,10 +1,18 @@
 import type { NonNullObject } from "@soppy-vue/shared"
 import type { Dep } from "./dep"
 import { createDep } from "./dep"
-import { activeEffect, trackEffect, triggerEffect } from "./effect"
+import { activeEffect, trackEffect, triggerEffects } from "./effect"
 import { toReactive } from "./reactive"
 
-function trackRefValue(ref: RefImpl) {
+type RefBase<T> = {
+  dep?: Dep
+  value: T
+}
+
+/**
+ * track activeEffect for ref.dep, exposed to `RefImpl` and `ComputedRefImpl`
+ */
+function trackRefValue(ref: RefBase<any>) {
   if (!activeEffect) return
 
   if (!ref.dep) {
@@ -15,16 +23,16 @@ function trackRefValue(ref: RefImpl) {
   trackEffect(activeEffect, ref.dep)
 }
 
-function triggerRefValue(ref: RefImpl) {
+function triggerRefValue(ref: RefBase<any>) {
   if (ref.dep) {
-    triggerEffect(ref.dep)
+    triggerEffects(ref.dep)
   }
 }
 
 class RefImpl {
   __sv_isRef = true
   _value: any
-  dep: Dep | undefined
+  dep?: Dep
 
   constructor(public rawValue: any) {
     this._value = toReactive(rawValue)
@@ -106,4 +114,4 @@ function proxyRefs(objectWithRef: any) {
   })
 }
 
-export { ref, toRef, toRefs, proxyRefs }
+export { ref, toRef, toRefs, proxyRefs, trackRefValue, triggerRefValue }
