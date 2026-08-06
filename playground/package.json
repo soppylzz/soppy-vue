@@ -4,10 +4,11 @@
   "type": "module",
   "scripts": {
     "web": "vite",
-    "node": "echo \"node dev running...\""
+    "node": "vitest run"
   },
   "dependencies": {
-    "soppy-vue": "workspace:*"
+    "soppy-vue": "workspace:*",
+    "@soppy-vue/reactivity": "workspace:*"
   },
   "devDependencies": {
     "vite": "^8.2.0",

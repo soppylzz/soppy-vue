@@ -5,7 +5,7 @@
     "build:dev": "pnpm run -C scripts/build build --dev",
     "build:prod": "pnpm run -C scripts/build build --prod",
     "format": "prettier --write --experimental-cli .",
-    "lint": "eslint . --ext .js,.mjs,.cjs,.ts,.json,.md --max-warnings 0 --concurrency auto",
+    "lint": "eslint . --ext .js,.mjs,.cjs,.ts,.json,.md --max-warnings 0",
     "lint:fix": "pnpm run lint --fix",
     "commit": "cz",
     "version": "changeset version",

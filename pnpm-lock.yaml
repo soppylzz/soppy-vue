@@ -60,16 +60,24 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
+  packages/reactivity: {}
+
   packages/shared: {}
 
   packages/soppy-vue:
     dependencies:
+      '@soppy-vue/reactivity':
+        specifier: workspace:*
+        version: link:../reactivity
       '@soppy-vue/shared':
         specifier: workspace:*
         version: link:../shared
 
   playground:
     dependencies:
+      '@soppy-vue/reactivity':
+        specifier: workspace:*
+        version: link:../packages/reactivity
       soppy-vue:
         specifier: workspace:*
         version: link:../packages/soppy-vue

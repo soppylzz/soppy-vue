@@ -1,7 +1,7 @@
 {
-  "name": "soppy-vue",
+  "name": "@soppy-vue/reactivity",
   "version": "0.0.0",
-  "description": "A Vue like framework for learning and understanding the core principles of Vue.js.",
+  "description": "Shared utils across @soppy-vue/*",
   "type": "module",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
@@ -18,22 +18,16 @@
     "dist",
     "README.md"
   ],
-  "dependencies": {
-    "@soppy-vue/shared": "workspace:*",
-    "@soppy-vue/reactivity": "workspace:*"
-  },
   "buildOptions": {
-    "name": "readVue",
     "formats": [
       "esm",
-      "cjs",
-      "iife"
+      "cjs"
     ]
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/source-readers/soppy-vue.git",
-    "directory": "packages/soppy-vue"
+    "directory": "packages/shared"
   },
   "keywords": [
     "soppy-vue",
