@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process"
-import { existsSync, cpSync } from "node:fs"
+import { existsSync, cpSync, rmSync, readdirSync } from "node:fs"
 import { join, basename, dirname, relative } from "node:path"
 import readline from "node:readline"
 import { isArray } from "lodash-unified"
@@ -24,6 +24,19 @@ function formatDuration(ms: number): string {
   if (ms < 1) return `${(ms * 1000).toFixed(0)}μs`
   if (ms < 1000) return `${ms.toFixed(1)}ms`
   return `${(ms / 1000).toFixed(1)}s`
+}
+
+function cleanDist(dir: string): void {
+  if (!existsSync(dir)) return
+
+  const entries = readdirSync(dir, { withFileTypes: true })
+  for (const entry of entries) {
+    // preserve tsc-generated type declarations
+    if (entry.name === "types") continue
+
+    const fullPath = join(dir, entry.name)
+    rmSync(fullPath, { recursive: true, force: true })
+  }
 }
 
 function generateDts(ctxs: Set<BuildContext>, increment: boolean = false): void {
@@ -101,5 +114,6 @@ export {
   formatDuration,
   generateDts,
   setupWatchTerminal,
+  cleanDist,
   globalLog,
 }

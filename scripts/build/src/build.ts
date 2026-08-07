@@ -6,6 +6,7 @@ import {
   generateDts,
   globalLog,
   setupWatchTerminal,
+  cleanDist,
 } from "./utils"
 import { projRoot } from "./constants"
 import { build, watch } from "rolldown"
@@ -52,6 +53,11 @@ async function buildAll(ctxs: BuildContext[]) {
   const dtsCtxs = new Set(ctxs.filter((c) => c.dts))
   let allFailures = 0
 
+  // clean dist (excluding types/) before building
+  for (const ctx of ctxs) {
+    cleanDist(ctx.dir)
+  }
+
   for (const ctx of ctxs) {
     try {
       await buildPackage(ctx)
@@ -75,6 +81,11 @@ async function buildAll(ctxs: BuildContext[]) {
 
 async function watchAll(ctxs: BuildContext[]) {
   const dtsCtxs = new Set(ctxs.filter((c) => c.dts))
+
+  // clean dist (excluding types/) once before watching
+  for (const ctx of ctxs) {
+    cleanDist(ctx.dir)
+  }
 
   // flatten all packages' WatchOptions into a single array
   const allOptions: WatchOptions[] = ctxs.flatMap((ctx) => ctx.options as WatchOptions[])

@@ -44,7 +44,7 @@ function resolveBuildContext(pkgInfo: PackageInfo, buildArgs: BuildArgs): BuildC
     const isIIFE = format === "iife"
 
     // prod: glob entry files; dev: single entry point
-    const input = isProd
+    const input = !isProd
       ? glob.sync(["**/*.{js,ts}"], {
           cwd: path,
           absolute: true,
@@ -79,10 +79,11 @@ function resolveBuildContext(pkgInfo: PackageInfo, buildArgs: BuildArgs): BuildC
       dir,
       format,
       name: raw.name,
-      sourcemap: isProd,
+      sourcemap: !isProd,
       entryFileNames: `[name]${ext}`,
       preserveModules,
-      preserveModulesRoot: preserveModules ? "src" : undefined,
+      preserveModulesRoot: preserveModules ? resolve(path, "src") : undefined,
+      minify: isProd ? { compress: { dropDebugger: true } } : false,
     }
   }
 
