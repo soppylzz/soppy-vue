@@ -157,3 +157,4 @@ function triggerEffects(dep: Dep) {
 }
 
 export { activeEffect, effect, trackEffect, triggerEffects, ReactiveEffect }
+export type { EffectFunction }

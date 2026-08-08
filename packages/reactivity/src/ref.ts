@@ -1,13 +1,38 @@
-import type { NonNullObject } from "@soppy-vue/shared"
+import type { IfAny, NonNullObject } from "@soppy-vue/shared"
 import type { Dep } from "./dep"
 import { createDep } from "./dep"
 import { activeEffect, trackEffect, triggerEffects } from "./effect"
 import { toReactive } from "./reactive"
+import { ReactiveFlags } from "./constants"
+
+declare const RefSymbol: unique symbol
+
+type Ref<T = any> = {
+  value: T
+  /**
+   * ORIGIN:
+   * Type differentiator only.
+   * We need this to be in public d.ts but don't want it to show up in IDE
+   * autocomplete, so we use a private Symbol instead.
+   */
+  [RefSymbol]: true
+}
 
 type RefBase<T> = {
   dep?: Dep
   value: T
 }
+
+type BaseTypes = string | number | boolean
+
+type UnwrapRef<T> = T extends Ref<infer V> ? UnwrapRefSimple<V> : UnwrapRefSimple<T>
+type UnwrapRefSimple<T> = T extends BaseTypes | Ref
+  ? T
+  : T extends object
+    ? {
+        [P in keyof T]: P extends symbol ? T[P] : UnwrapRef<T[P]>
+      }
+    : T
 
 /**
  * track activeEffect for ref.dep, exposed to `RefImpl` and `ComputedRefImpl`
@@ -29,12 +54,13 @@ function triggerRefValue(ref: RefBase<any>) {
   }
 }
 
-class RefImpl {
-  __sv_isRef = true
-  _value: any
-  dep?: Dep
+class RefImpl<T> {
+  _value: T
+  dep?: Dep;
 
-  constructor(public rawValue: any) {
+  [ReactiveFlags.IS_REF] = true
+
+  constructor(public rawValue: T) {
     this._value = toReactive(rawValue)
   }
 
@@ -53,16 +79,30 @@ class RefImpl {
   }
 }
 
-function createRef(value: any) {
+function createRef(value: unknown) {
+  // same stragedy with reactive
+  if (isRef(value)) {
+    return value
+  }
   return new RefImpl(value)
 }
 
-function ref(value: any) {
+function ref<T>(value: T): Ref<UnwrapRef<T>>
+function ref<T = any>(): Ref<T | undefined>
+function ref(value?: unknown) {
   return createRef(value)
 }
 
+/**
+ * if use `type ToRef<T> = [T] extends [Ref] ? T : Ref<T>`, `ToRef<any>` will be `any`
+ * any type should discuss separately
+ */
+type ToRef<T> = IfAny<T, Ref<T>, [T] extends [Ref] ? T : Ref<T>>
+type ToRefs<T = any> = {
+  [K in keyof T]: ToRef<T[K]>
+}
 class ObjectRefImpl {
-  __sv_isRef = true
+  [ReactiveFlags.IS_REF] = true
 
   constructor(
     public _object: NonNullObject,
@@ -78,11 +118,12 @@ class ObjectRefImpl {
   }
 }
 
-function toRef(object: NonNullObject, key: PropertyKey) {
-  return new ObjectRefImpl(object, key)
+function toRef<T extends NonNullObject>(object: T, key: keyof T): ToRef<T> {
+  const val = object[key]
+  return isRef(val) ? val : (new ObjectRefImpl(object, key) as any)
 }
 
-function toRefs(object: NonNullObject) {
+function toRefs<T extends NonNullObject>(object: T): ToRefs<T> {
   const res: any = {}
   for (const key in object) {
     res[key] = toRef(object, key)
@@ -92,19 +133,19 @@ function toRefs(object: NonNullObject) {
 
 /**
  * allow us to access `refVal` and `val` in a generic way within template
- *
- * @param objectWithRef unified entry to which all `val` are attached
+ * @param objectWithRefs unified entry to which all `val` are attached
  */
-function proxyRefs(objectWithRef: any) {
-  return new Proxy(objectWithRef, {
+function proxyRefs(objectWithRefs: any) {
+  return new Proxy(objectWithRefs, {
     get(target, key, receiver) {
-      const ref = Reflect.get(target, key, receiver)
-      return ref.__sv_isRef ? ref.value : ref
+      const value = Reflect.get(target, key, receiver)
+
+      return isRef(value) ? value.value : ref
     },
     set(target, key, newVal, receiver) {
       const oldVal = target[key]
 
-      if (oldVal.__sv_isRef) {
+      if (isRef(oldVal)) {
         oldVal.value = newVal
         return true
       } else {
@@ -114,4 +155,10 @@ function proxyRefs(objectWithRef: any) {
   })
 }
 
-export { ref, toRef, toRefs, proxyRefs, trackRefValue, triggerRefValue }
+function isRef<T>(r: Ref<T> | unknown): r is Ref<T>
+function isRef(r: any): r is Ref {
+  return !!(r && r[ReactiveFlags.IS_REF] === true)
+}
+
+export type { Ref, UnwrapRef, UnwrapRefSimple }
+export { ref, toRef, toRefs, proxyRefs, trackRefValue, triggerRefValue, isRef }

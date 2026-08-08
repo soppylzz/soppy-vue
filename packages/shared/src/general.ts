@@ -4,4 +4,8 @@ const isObject = (val: unknown): val is NonNullObject => val !== null && typeof 
 
 const isFunction = (val: unknown): val is (...args: any[]) => any => typeof val === "function"
 
-export { isObject, isFunction }
+const isArray = <T>(val: T | T[]): val is T[] => Array.isArray(val)
+
+const NOOP = () => {}
+
+export { isObject, isFunction, isArray, NOOP }

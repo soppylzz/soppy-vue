@@ -1,5 +1,6 @@
 enum ReactiveFlags {
   IS_REACTIVE = "__sv_isReactive",
+  IS_REF = "__sv_isRef",
 }
 
 enum DirtyLevels {
