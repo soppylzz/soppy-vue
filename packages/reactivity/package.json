@@ -1,7 +1,7 @@
 {
   "name": "@soppy-vue/reactivity",
   "version": "0.0.0",
-  "description": "Shared utils across @soppy-vue/*",
+  "description": "Vue-like implementation of reactivity",
   "type": "module",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
@@ -18,6 +18,9 @@
     "dist",
     "README.md"
   ],
+  "dependencies": {
+    "@soppy-vue/shared": "workspace:*"
+  },
   "buildOptions": {
     "formats": [
       "esm",
@@ -27,7 +30,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/source-readers/soppy-vue.git",
-    "directory": "packages/shared"
+    "directory": "packages/reactivity"
   },
   "keywords": [
     "soppy-vue",
