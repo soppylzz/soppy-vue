@@ -6,6 +6,8 @@
     "rootDir": "packages",
     "types": ["node"],
     "lib": ["dom", "esnext"],
+    // temporally disable implicit any check
+    "noImplicitAny": false,
     "paths": {
       "@soppy-vue/*": ["./packages/*/src"]
     }

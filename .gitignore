@@ -1,8 +1,6 @@
 node_modules/
 
 dist/
-# ignore for now
-tutorials/
 
 .DS_Store
 *.tsbuildinfo

@@ -66,13 +66,31 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
-  packages/shared: {}
-
-  packages/soppy-vue:
+  packages/runtime-core:
     dependencies:
       '@soppy-vue/reactivity':
         specifier: workspace:*
         version: link:../reactivity
+      '@soppy-vue/shared':
+        specifier: workspace:*
+        version: link:../shared
+
+  packages/runtime-dom:
+    dependencies:
+      '@soppy-vue/runtime-core':
+        specifier: workspace:*
+        version: link:../runtime-core
+      '@soppy-vue/shared':
+        specifier: workspace:*
+        version: link:../shared
+
+  packages/shared: {}
+
+  packages/soppy-vue:
+    dependencies:
+      '@soppy-vue/runtime-dom':
+        specifier: workspace:*
+        version: link:../runtime-dom
       '@soppy-vue/shared':
         specifier: workspace:*
         version: link:../shared

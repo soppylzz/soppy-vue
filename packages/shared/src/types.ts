@@ -8,4 +8,6 @@ type NonNullObject = Record<PropertyKey, any>
  */
 type IfAny<T, Y, N> = 0 extends 1 & T ? Y : N
 
-export type { NonNullObject, IfAny }
+type MaybeArray<T> = T | T[]
+
+export type { NonNullObject, IfAny, MaybeArray }

@@ -72,6 +72,7 @@ export default defineConfig([
     name: "markdown/custom/code",
     files: ["**/*.md/*.{js,ts,mjs,cjs}"],
     rules: {
+      "no-empty": "off",
       "no-undef": "off",
       "no-console": "off",
       "no-debugger": "off",
@@ -86,8 +87,6 @@ export default defineConfig([
   {
     files: ["**/*.ts"],
     rules: {
-      // temporarily disable any-check, for lib quick building
-      "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/consistent-type-imports": [
         "error",
         {
@@ -96,6 +95,14 @@ export default defineConfig([
           prefer: "type-imports",
         },
       ],
+      // allow `xxx && yyy`
+      "@typescript-eslint/no-unused-expressions": "off",
+      // allow `interface XXX extends {}`
+      "@typescript-eslint/no-empty-object-type": "off",
+
+      // temporarily disable any-check, for lib quick building
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": "off",
     },
   },
 ])

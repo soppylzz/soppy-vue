@@ -1,7 +1,7 @@
 {
-  "name": "soppy-vue",
+  "name": "@soppy-vue/runtime-core",
   "version": "0.0.0",
-  "description": "A Vue like framework for learning and understanding the core principles of Vue.js.",
+  "description": "Vue-like runtime implementation",
   "type": "module",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
@@ -20,20 +20,18 @@
   ],
   "dependencies": {
     "@soppy-vue/shared": "workspace:*",
-    "@soppy-vue/runtime-dom": "workspace:*"
+    "@soppy-vue/reactivity": "workspace:*"
   },
   "buildOptions": {
-    "name": "readVue",
     "formats": [
       "esm",
-      "cjs",
-      "iife"
+      "cjs"
     ]
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/source-readers/soppy-vue.git",
-    "directory": "packages/soppy-vue"
+    "directory": "packages/runtime-dom"
   },
   "keywords": [
     "soppy-vue",
