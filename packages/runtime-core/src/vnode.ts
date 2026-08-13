@@ -8,9 +8,11 @@ import type { RendererNode } from "./renderer"
  * @example <component :is="vnode"/>
  */
 const Text = Symbol.for("sv-text")
-export { Text }
+const Fragment = Symbol.for("sv-fragment")
 
-type VNodeTypes = string | typeof Text
+export { Text, Fragment }
+
+type VNodeTypes = string | typeof Text | typeof Fragment
 
 type VNodeProps = {
   key?: string | number | symbol
@@ -49,6 +51,9 @@ interface VNode<HostNode = RendererNode, ExtraProps = { [key: string]: any }> {
    */
   el: HostNode | null
   key: VNodeKey
+
+  // fragment anchor
+  anchor: HostNode | null
 
   // optimize runtime
   shapeFlag: number

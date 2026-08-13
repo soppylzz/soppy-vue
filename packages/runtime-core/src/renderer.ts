@@ -1,6 +1,6 @@
 import { EMPTY_ARR, EMPTY_OBJ, isReservedProp, PatchFlags, ShapeFlags } from "@soppy-vue/shared"
 import type { VNode, VNodeArrayChildren, VNodeKey } from "./vnode"
-import { isSameVNodeType, normalizeVNode, Text } from "./vnode"
+import { Fragment, isSameVNodeType, normalizeVNode, Text } from "./vnode"
 import type { Data } from "./component"
 
 /**
@@ -184,6 +184,10 @@ function createBaseRenderer(options: RendererOptions): Renderer {
         processText(n1, n2, container, anchor)
         break
       }
+      case Fragment: {
+        processFragement(n1, n2, container, anchor, parentComponent)
+        break
+      }
       default: {
         if (shapeFlag & ShapeFlags.ELEMENT) {
           processElement(n1, n2, container, anchor, parentComponent)
@@ -213,7 +217,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
   }
 
   const unmount = (vnode: VNode, parentComponent?: any) => {
-    const { shapeFlag } = vnode
+    const { type, shapeFlag, children } = vnode
 
     /**
      * in origin vue, parentComponent used for:
@@ -224,9 +228,15 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     void parentComponent
 
     if (shapeFlag & ShapeFlags.COMPONENT) {
+      // process the component separately
       unmountComponent(vnode.component!)
     } else {
-      // unmount other vnode here
+      // recursive unmount other vnode here
+      if (type === Fragment) {
+        unmountChildren(children as VNode[], parentComponent)
+      }
+
+      // all types of vnodes should eventually be deleted
       remove(vnode)
     }
   }
@@ -245,6 +255,33 @@ function createBaseRenderer(options: RendererOptions): Renderer {
       if (n2.children !== n1.children) {
         hostSetText(el, n2.children as string)
       }
+    }
+  }
+
+  /* ==================== internal methods (fragment) ==================== */
+  const processFragement = (
+    n1: VNode | null,
+    n2: VNode,
+    container: RendererElement,
+    anchor: RendererNode | null,
+    parentComponent: any
+  ) => {
+    // light: save startAnchor to `vnode.el`, save endAnchor to `vnode.anchor` to fix the range
+    const fragmentStartAnchor = (n2.el = n1 ? n1.el : hostCreateText(""))!
+    const fragmentEndAnchor = (n2.anchor = n1 ? n1.anchor : hostCreateText(""))!
+
+    if (n1 == null) {
+      hostInsert(fragmentStartAnchor, container, anchor)
+      hostInsert(fragmentEndAnchor, container, anchor)
+
+      mountChildren(
+        n2.children as VNodeArrayChildren,
+        container,
+        fragmentEndAnchor,
+        parentComponent
+      )
+    } else {
+      patchChildren(n1, n2, container, fragmentEndAnchor, parentComponent)
     }
   }
 

@@ -7,12 +7,21 @@ Vue 的运行时模块由 `runtime-core` 和 `runtime-dom` 两个子包组成。
 
 ```
 soppy-vue
- └─ @soppy-vue/runtime-dom				=> 浏览器 DOM 操作
-     └─ @soppy-vue/runtime-core 	=> 渲染逻辑
-         └─ @soppy-vue/reactivity => 响应式系统
+ └─ @soppy-vue/runtime-dom				=> DOM manipulated provided by browser
+     └─ @soppy-vue/runtime-core 	=> unified render process
+         └─ @soppy-vue/reactivity => reactivity system
 ```
 
 这种分层设计让 Vue 可以在不修改 `runtime-core` 的前提下，通过实现不同的 `RendererOptions` 适配到其他平台。下面介绍一下 Runtime 模块中较为重要的设计与 API。
+
+### 1. Fragment
+
+Fragment 在 Vue 中表现为一个没有真实 DOM 节点、但包含多个子节点的逻辑容器（如 `<template>` 多根节点、`v-for` 产生的片段等）。Fragment 本身**不产生真实 DOM 元素**，但 Vue 需要把它「锚定」在 DOM 中，因此用了两个空文本节点作为边界标记：
+
+```ts
+const fragmentStartAnchor = (n2.el = n1 ? n1.el : hostCreateText(""))!
+const fragmentEndAnchor = (n2.anchor = n1 ? n1.anchor : hostCreateText(""))!
+```
 
 ## Optimize
 
