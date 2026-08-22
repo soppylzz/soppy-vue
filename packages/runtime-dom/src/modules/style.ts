@@ -16,9 +16,11 @@ function setStyle(style: CSSStyleDeclaration, name: string, val: MaybeArray<stri
   } else {
     if (val === null) val = ""
     if (name.startsWith("--")) {
+      // origin comment: custom property definition
       style.setProperty(name, val)
     } else {
-      // todo: browser prefix autoPrefixer, !important support
+      // note: variables set to "important!" using
+      // `setProperty` require special handling
       style[name] = val
     }
   }
@@ -33,7 +35,6 @@ function patchStyle(el: Element, prev: Style, next: Style) {
   if (next) {
     if (isNextString) {
       // process: any => string
-      // todo: source code also handles the reservation of some built-in CSS variables here
       if (prev !== next) {
         style.cssText = next
       }
@@ -53,6 +54,8 @@ function patchStyle(el: Element, prev: Style, next: Style) {
       // process: existed => null
       el.removeAttribute("style")
     }
+    // in official vue3, it handles the conflict between
+    // vShow and display here, ignored by our impl
   }
 }
 

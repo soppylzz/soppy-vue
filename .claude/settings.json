@@ -9,13 +9,12 @@
       "Edit",
       "Write",
       "Bash(git:*)",
-      "Bash(npm:*)",
       "Bash(npx:*)",
       "Bash(node:*)",
       "Bash(pnpm:*)",
-      "Bash(yarn:*)",
       "Bash(vitest:*)",
-      "Bash(tsc:*)"
+      "Bash(tsc:*)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ],
     "ask": ["Bash(git push:*)", "Bash(npm publish:*)", "Bash(npx shadcn:*)", "Bash(git commit *)"],
     "deny": [

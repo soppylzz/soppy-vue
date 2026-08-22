@@ -1,7 +1,34 @@
-import { EMPTY_ARR, EMPTY_OBJ, isReservedProp, PatchFlags, ShapeFlags } from "@soppy-vue/shared"
+import {
+  EMPTY_ARR,
+  EMPTY_OBJ,
+  isReservedProp,
+  PatchFlags,
+  ShapeFlags,
+  syncRunFns,
+} from "@soppy-vue/shared"
 import type { VNode, VNodeArrayChildren, VNodeKey } from "./vnode"
-import { Fragment, isSameVNodeType, normalizeVNode, Text } from "./vnode"
-import type { Data } from "./component"
+import { Fragment, invokeVNodeHook, isSameVNodeType, normalizeVNode, Text } from "./vnode"
+import type { ComponentInternalInstance, Data } from "./component"
+import {
+  createComponentInstance,
+  setupComponent,
+  updateProps,
+  renderComponentRoot,
+  shouldUpdateComponent,
+  updateHOCHostEl,
+  updateSlots,
+} from "./component"
+import { ReactiveEffect, resetTracking, setTracking } from "@soppy-vue/reactivity"
+import type { SchedulerJob } from "./scheduler"
+import {
+  flushPostFlushCbs,
+  flushPreFlushCbs,
+  invalidateJob,
+  queueJob,
+  queuePostFlushCbs,
+} from "./scheduler"
+import { lis } from "./lis"
+import { LifecycleHooks } from "./constant"
 
 /**
  * light: decoupling the render process from DOM specification
@@ -22,6 +49,7 @@ interface RendererOptions<HostNode = RendererNode, HostElement = RendererElement
   setElementText(el: HostElement, text: string): void
 
   createText(text: string): HostNode
+  createComment(text: string): HostNode
   setText(node: HostNode, text: string): void
 
   // in DOM tree, leafs can be accepted by Element/Node, non-leafs must be Element
@@ -30,7 +58,8 @@ interface RendererOptions<HostNode = RendererNode, HostElement = RendererElement
 }
 
 /**
- * why is the “Root” prefix used here?
+ * --- why is the "Root" prefix used here? ---
+ *
  * - add semantic information
  * - distinguish between `BlockRenderFn` and `ComponentRenderFn`
  */
@@ -43,67 +72,9 @@ interface Renderer<HostElement = RendererElement> {
   render: RootRenderFunction<HostElement>
 }
 
-/**
- * LIS: https://en.wikipedia.org/wiki/Longest_increasing_subsequence
- * @returns index array of LIS, exclude arr[i] = 0
- */
-function LIS(arr: number[]): number[] {
-  // prev[i] = predecessor index of `i` in a LIS, later to fill
-  const prev = arr.slice()
-
-  // this is the "top card" of each pile in Patience Sorting
-  const pileTop = [0]
-
-  let curIdx, curVal, left, right
-
-  for (curIdx = 0; curIdx < arr.length; curIdx++) {
-    curVal = arr[curIdx]
-
-    // vue-special implementation, to skip new mount vnode
-    if (curVal === 0) continue
-
-    // case 1: current value is larger than all pile tops, build new pile
-    const lastPileTop = pileTop[pileTop.length - 1]
-    if (arr[lastPileTop] < curVal) {
-      prev[curIdx] = lastPileTop
-      pileTop.push(curIdx)
-      continue
-    }
-
-    // case 2: find the **leftmost** pile where top >= curVal
-    left = 0
-    right = pileTop.length - 1
-    while (left < right) {
-      const mid = (left + right) >> 1
-      if (arr[pileTop[mid]] < curVal) {
-        left = mid + 1
-      } else {
-        right = mid
-      }
-    }
-
-    if (curVal < arr[pileTop[left]]) {
-      pileTop[left] = curIdx
-      if (left > 0) {
-        prev[curIdx] = pileTop[left - 1]
-      }
-    }
-  }
-
-  /**
-   * backtrack to reconstruct one LIS from predecessor pointers
-   * remove the useless `pileTop[i]` from subsequent updates
-   */
-  curIdx = pileTop.length - 1
-  curVal = pileTop[curIdx]
-
-  while (curIdx > 0) {
-    pileTop[curIdx] = curVal
-    curVal = prev[curVal]
-    curIdx--
-  }
-
-  return pileTop
+function toggleRecurse({ effect, update }: ComponentInternalInstance, allowed: boolean) {
+  // update ReactiveEffect.allowRecurse / ScheduleJob.allowRecurse at once
+  effect.allowRecurse = update.allowRecurse = allowed
 }
 
 function createBaseRenderer<HostNode = RendererNode, HostElement = RendererElement>(
@@ -117,14 +88,16 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     insert: hostInsert,
     remove: hostRemove,
     createElement: hostCreateElement,
+    createComment: hostCreateComment,
     createText: hostCreateText,
     setElementText: hostSetElementText,
     setText: hostSetText,
-    // parentNode: hostParentNode,
-    // nextSibling: hostNextSibling,
+    parentNode: hostParentNode,
+    nextSibling: hostNextSibling,
     patchProp: hostPatchProp,
   } = options
 
+  /* ==================== internal methods (utils) ==================== */
   const patchProps = (el: RendererNode, oldProps: Data, newProps: Data) => {
     if (oldProps !== newProps) {
       // de-attach all oldProps
@@ -145,6 +118,14 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     }
   }
 
+  const getNextHostNode = (vnode: VNode): RendererNode | null => {
+    if (vnode.shapeFlag & ShapeFlags.COMPONENT) {
+      return getNextHostNode(vnode.component!.subTree)
+    }
+    // Fragment use anchor as boundary, single-root nodes use el as boundary
+    return hostNextSibling((vnode.anchor || vnode.el)!)
+  }
+
   /* ==================== exposed methods ==================== */
   const render: RootRenderFunction = (vnode, container) => {
     if (vnode == null) {
@@ -152,6 +133,11 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     } else {
       patch(container._vnode || null, vnode, container)
     }
+
+    // handle preFlushCbs that are not handled within comp instance, as well as all postFlushCbs
+    flushPreFlushCbs()
+    flushPostFlushCbs()
+
     // bind a vnode to a real HostElement, enable bi-directional access
     container._vnode = vnode
   }
@@ -162,30 +148,44 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     n2: VNode,
     container: RendererElement,
     anchor: RendererNode | null = null,
-    parentComponent: any = null
+    parentComponent: ComponentInternalInstance | null = null
   ) => {
     // vnode remain unchanged, skip
     if (n1 === n2) return
 
-    // type change, execute the mount process
+    // type change, unmount old tree and re-mount as new
     if (n1 && !isSameVNodeType(n1, n2)) {
+      /**
+       * light: anchor arrives as `null`, but the re-mount `hostInsert` places the new
+       * node **before** the anchor, so it must point at the node **after** the old vnode
+       * to land in the same spot
+       */
+      anchor = getNextHostNode(n1)
       unmount(n1, parentComponent)
       n1 = null
     }
 
     const { type, shapeFlag } = n2
+    /**
+     * synchronize the changes to VNodeTypes with case-statement here,
+     * to enable the rendering of certain special vnode, like:
+     * - `Comment`, `Static`, **`Fragment`**
+     */
     switch (type) {
       /**
-       * synchronize the changes to VNodeTypes with case-statement here,
-       * to enable the rendering of certain special vnode, like:
-       * - `Comment`, `Static`, **`Fragment`**
+       * light: at first, i thought it was a unnecessary impl, but during development,
+       * i discovered it is often used as a fallback vnode type within runtime
        */
+      case Comment: {
+        processComment(n1, n2, container, anchor)
+        break
+      }
       case Text: {
         processText(n1, n2, container, anchor)
         break
       }
       case Fragment: {
-        processFragement(n1, n2, container, anchor, parentComponent)
+        processFragment(n1, n2, container, anchor, parentComponent)
         break
       }
       default: {
@@ -200,10 +200,29 @@ function createBaseRenderer(options: RendererOptions): Renderer {
   }
 
   const remove = (vnode: VNode) => {
-    const { type, el } = vnode
+    const { type, el, anchor } = vnode
 
-    // if current type is special, redirect to speific removeFn
-    void type
+    if (type === Fragment) {
+      /**
+       * Fragment VNode anchors:
+       * - `el`: leading empty text node (before first child)
+       * - `anchor`: trailing empty text node (after last child)
+       *
+       * removal strategy (official vue3):
+       * - prod: direct DOM removal in a loop — minimal overhead.
+       * - dev:  remove via vnode.children — poor stability.
+       */
+      let cur = el!
+      const end = anchor!
+
+      let next
+      while (cur !== end) {
+        next = hostNextSibling(cur)!
+        hostRemove(cur)
+        cur = next
+      }
+      hostRemove(end)
+    }
 
     const performRemove = () => {
       hostRemove(el!)
@@ -211,33 +230,44 @@ function createBaseRenderer(options: RendererOptions): Renderer {
 
     /**
      * customize additional pre-remove process here
-     * such as run transition `leave()` of origin vue
+     * such as run transition `leave()` of official vue3
      */
     performRemove()
   }
 
-  const unmount = (vnode: VNode, parentComponent?: any) => {
+  const unmount = (vnode: VNode, parentComponent: ComponentInternalInstance | null) => {
     const { type, shapeFlag, children } = vnode
 
+    invokeVNodeHook("onVNodeBeforeUnmount", vnode)
     /**
-     * in origin vue, parentComponent used for:
-     * - invokeHooks for vnode
+     * in official vue3, parentComponent used for:
      * - support for implementation of keep-alive API
      * - pass component instance to the recursive call tree
      */
-    void parentComponent
-
     if (shapeFlag & ShapeFlags.COMPONENT) {
       // process the component separately
       unmountComponent(vnode.component!)
     } else {
       // recursive unmount other vnode here
-      if (type === Fragment) {
-        unmountChildren(children as VNode[], parentComponent)
-      }
-
+      type === Fragment && unmountChildren(children as VNode[], parentComponent)
       // all types of vnodes should eventually be deleted
       remove(vnode)
+    }
+    queuePostFlushCbs(() => invokeVNodeHook("onVNodeUnmounted", vnode))
+  }
+
+  /* ==================== internal methods (comment) ==================== */
+  const processComment = (
+    n1: VNode | null,
+    n2: VNode,
+    container: RendererElement,
+    anchor: RendererNode | null
+  ) => {
+    if (n1 == null) {
+      hostInsert((n2.el = hostCreateComment((n2.children as string) || "")), container, anchor)
+    } else {
+      // vue does not support for dynamic comments
+      n2.el = n1.el
     }
   }
 
@@ -259,12 +289,12 @@ function createBaseRenderer(options: RendererOptions): Renderer {
   }
 
   /* ==================== internal methods (fragment) ==================== */
-  const processFragement = (
+  const processFragment = (
     n1: VNode | null,
     n2: VNode,
     container: RendererElement,
     anchor: RendererNode | null,
-    parentComponent: any
+    parentComponent: ComponentInternalInstance | null
   ) => {
     // light: save startAnchor to `vnode.el`, save endAnchor to `vnode.anchor` to fix the range
     const fragmentStartAnchor = (n2.el = n1 ? n1.el : hostCreateText(""))!
@@ -290,7 +320,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     vnode: VNode,
     container: RendererElement,
     anchor: RendererNode | null,
-    parentComponent: any
+    parentComponent: ComponentInternalInstance | null
   ) => {
     const { props, shapeFlag } = vnode
     const el: RendererElement = (vnode.el = hostCreateElement(vnode.type as string))
@@ -303,27 +333,48 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
       hostSetElementText(el, vnode.children as string)
     } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-      // mountChildren
-      mountChildren(vnode.children, el, anchor, parentComponent)
+      mountChildren(vnode.children as VNodeArrayChildren, el, anchor, parentComponent)
     }
 
     if (props) {
       for (const key in props) {
-        if (isReservedProp(key)) continue
-        hostPatchProp(el, key, null, props[key])
+        if (key !== "value" && !isReservedProp(key)) {
+          hostPatchProp(el, key, null, props[key])
+        }
+        /**
+         * --- why we patch DOM value at the end? ---
+         * because value depends on other attrs (e.g. min/max) being set first.
+         * @example
+         * <template>
+         *   <input type="range" :min="0" :max="100" :value="50" />
+         * </template>
+         */
+        if ("value" in props) {
+          hostPatchProp(el, "value", null, props.value)
+        }
+        invokeVNodeHook("onVNodeBeforeMount", vnode)
       }
     }
 
     hostInsert(el, container, anchor)
+    queuePostFlushCbs(() => invokeVNodeHook("onVNodeMounted", vnode))
   }
 
-  const patchElement = (n1: VNode, n2: VNode, parentComponent: any) => {
+  const patchElement = (
+    n1: VNode,
+    n2: VNode,
+    parentComponent: ComponentInternalInstance | null
+  ) => {
     // as a vnode awaiting rendering, `n2.el` is not bound to an actual DOM element. reuse `n1.el` here
     const el = (n2.el = n1.el!)
     const { patchFlag } = n2
 
     const oldProps = n1.props || EMPTY_OBJ
     const newProps = n2.props || EMPTY_OBJ
+
+    parentComponent && toggleRecurse(parentComponent, false)
+    invokeVNodeHook("onVNodeBeforeUpdate", n2, n1)
+    parentComponent && toggleRecurse(parentComponent, true)
 
     // 1. patch children
     patchChildren(n1, n2, el, null, parentComponent)
@@ -343,14 +394,10 @@ function createBaseRenderer(options: RendererOptions): Renderer {
         if (patchFlag & PatchFlags.STYLE) {
           hostPatchProp(el, "style", oldProps.style, newProps.style)
         }
-
         /**
-         * update dynamic props by certain `n2.dynamicKeys`.
-         * use `patchProps` to implement it for now
+         * not-impl-yet: update dynamic props by certain `n2.dynamicKeys`.
+         * if (patchFlag & PatchFlags.PROPS) {}
          */
-        if (patchFlag & PatchFlags.PROPS) {
-          patchProps(el, oldProps, newProps)
-        }
       }
 
       // 2.2. patch element text
@@ -360,9 +407,11 @@ function createBaseRenderer(options: RendererOptions): Renderer {
         }
       }
     } else {
-      // 2.0. backstop of patch unmatch
+      // 2.0. unmatching fallback
       patchProps(el, oldProps, newProps)
     }
+
+    queuePostFlushCbs(() => invokeVNodeHook("onVNodeUpdated", n2, n1))
   }
 
   const processElement = (
@@ -370,31 +419,184 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     n2: VNode,
     container: RendererElement,
     anchor: RendererNode | null,
-    parentComponent: any
+    parentComponent: ComponentInternalInstance | null
   ) => {
     n1 == null
       ? mountElement(n2, container, anchor, parentComponent)
       : patchElement(n1, n2, parentComponent)
   }
 
-  /* ==================== WIP:internal methods (component) ==================== */
+  /* ==================== internal methods (component) ==================== */
+  /**
+   * fast-path when a parent update triggers a child re-render.
+   * - copy instance
+   * - syncs props
+   * - flushes all pre-render callbacks
+   * before the component's render effect re-runs.
+   */
+  const updateComponentPreRender = (instance: ComponentInternalInstance, next: VNode) => {
+    next.component = instance
+    const prevProps = instance.vnode.props
+    instance.vnode = next
+    /**
+     * light: updateComponentPreRender executing when `next` existed,
+     * we only **CONSUME** `next` once, and clear it immediately.
+     *
+     * `next` will be reset the next time `shouldUpdateComponent=true`
+     * in {@link updateComponent} is executed
+     */
+    instance.next = null
+    updateProps(instance, next.props, prevProps)
+    updateSlots(instance, next.children)
+
+    setTracking(false)
+    /**
+     * vue api cause flush below:
+     * - watcher with { flush: "pre" }
+     * - onBeforeUpdate
+     */
+    flushPreFlushCbs(instance)
+    resetTracking()
+  }
+
+  const setupRenderEffect = (
+    instance: ComponentInternalInstance,
+    initialVNode: VNode,
+    container: RendererElement,
+    anchor: RendererNode | null
+  ) => {
+    const componentUpdateFn = () => {
+      if (!instance.isMounted) {
+        const { beforeMount, mounted } = instance
+
+        toggleRecurse(instance, false)
+        beforeMount && syncRunFns(beforeMount)
+        invokeVNodeHook("onVNodeBeforeMount", initialVNode)
+        toggleRecurse(instance, true)
+
+        const subTree = (instance.subTree = renderComponentRoot(instance))
+
+        patch(null, subTree, container, anchor, instance)
+        initialVNode.el = subTree.el
+
+        mounted && queuePostFlushCbs(mounted)
+        queuePostFlushCbs(() => invokeVNodeHook("onVNodeMounted", initialVNode))
+
+        instance.isMounted = true
+        // origin issue#2458: deference mount-only object parameters to prevent memleaks
+        initialVNode = container = anchor = null as any
+      } else {
+        // process update component
+        const { vnode, beforeUpdate, updated } = instance
+        let next = instance.next
+        const originNext = next
+
+        toggleRecurse(instance, false)
+        if (next) {
+          next.el = vnode.el
+          // light: process pre-watcher
+          updateComponentPreRender(instance, next)
+        } else {
+          next = vnode
+        }
+        beforeUpdate && syncRunFns(beforeUpdate)
+        invokeVNodeHook("onVNodeBeforeUpdate", next, vnode)
+        toggleRecurse(instance, true)
+
+        const nextTree = renderComponentRoot(instance)
+        const prevTree = instance.subTree
+        instance.subTree = nextTree
+
+        patch(
+          prevTree,
+          nextTree,
+          hostParentNode(prevTree.el!)!,
+          getNextHostNode(prevTree),
+          instance
+        )
+
+        next.el = nextTree.el
+        if (originNext === null) {
+          /**
+           * --- why use updateHOCHostEl to find ancestor node? ---
+           */
+          updateHOCHostEl(instance, nextTree.el)
+        }
+
+        updated && queuePostFlushCbs(updated)
+        queuePostFlushCbs(() => invokeVNodeHook("onVNodeUpdated", next, vnode))
+      }
+    }
+
+    const effect = (instance.effect = new ReactiveEffect(componentUpdateFn, () => queueJob(update)))
+
+    const update: SchedulerJob = (instance.update = () => {
+      if (effect.dirty) {
+        effect.run()
+      }
+    })
+    update.id = instance.uid
+    toggleRecurse(instance, true)
+
+    if (__DEV__) {
+      const rtc = instance[LifecycleHooks.RENDER_TRACKED]
+      const rtg = instance[LifecycleHooks.RENDER_TRIGGERED]
+      effect.onTrack = rtc ? (e) => syncRunFns(rtc, e) : undefined
+      effect.onTrigger = rtg ? (e) => syncRunFns(rtg, e) : undefined
+      update.ownerInstance = instance
+    }
+    update()
+  }
+
   const mountComponent = (
     initialVNode: VNode,
     container: RendererElement,
     anchor: RendererNode | null,
-    parentComponent: any
-  ) => {}
+    parentComponent: ComponentInternalInstance | null
+  ) => {
+    const instance = (initialVNode.component = createComponentInstance(
+      initialVNode,
+      parentComponent
+    ))
 
-  const unmountComponent = (instance: any) => {}
+    setupComponent(instance)
+    setupRenderEffect(instance, initialVNode, container, anchor)
+  }
 
-  const updateComponent = (n1: VNode, n2: VNode) => {}
+  const unmountComponent = (instance: ComponentInternalInstance) => {
+    const { update, subTree, beforeUnmount, unmounted } = instance
+    beforeUnmount && syncRunFns(beforeUnmount)
+
+    if (update) {
+      update.active = false
+      unmount(subTree, instance)
+    }
+    unmounted && queuePostFlushCbs(() => unmounted)
+    queuePostFlushCbs(() => (instance.isUnmounted = true))
+  }
+
+  const updateComponent = (n1: VNode, n2: VNode) => {
+    const instance = (n2.component = n1.component)!
+
+    if (shouldUpdateComponent(n1, n2)) {
+      instance.next = n2
+      // remove an existing pending `instance.update` job, to prevent executed twice
+      invalidateJob(instance.update)
+      instance.effect.dirty = true
+      instance.update()
+    } else {
+      // origin comment: no update needed. just copy over properties
+      n2.el = n1.el
+      instance.vnode = n2
+    }
+  }
 
   const processComponent = (
     n1: VNode | null,
     n2: VNode,
     container: RendererElement,
     anchor: RendererNode | null,
-    parentComponent: any
+    parentComponent: ComponentInternalInstance | null
   ) => {
     if (n1 == null) {
       mountComponent(n2, container, anchor, parentComponent)
@@ -405,19 +607,23 @@ function createBaseRenderer(options: RendererOptions): Renderer {
 
   /* ==================== internal methods (children) ==================== */
   const mountChildren = (
-    children: any,
+    children: VNodeArrayChildren,
     container: RendererElement,
     anchor: RendererNode | null,
-    parentComponent: any,
+    parentComponent: ComponentInternalInstance | null,
     start: number = 0
   ) => {
     for (let i = start; i < children.length; i++) {
-      const child = children[i]
+      const child = normalizeVNode(children[i])
       patch(null, child, container, anchor, parentComponent)
     }
   }
 
-  const unmountChildren = (children: VNode[], parentComponent: any, start: number = 0) => {
+  const unmountChildren = (
+    children: VNode[],
+    parentComponent: ComponentInternalInstance | null,
+    start: number = 0
+  ) => {
     for (let i = start; i < children.length; i++) {
       unmount(children[i], parentComponent)
     }
@@ -433,16 +639,36 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     n2: VNode,
     container: RendererElement,
     anchor: RendererNode | null,
-    parentComponent: any
+    parentComponent: ComponentInternalInstance | null
   ) => {
     const c1 = n1 && n1.children
     const c2 = n2 && n2.children
 
     const { shapeFlag: prevShapeFlag = 0 } = n1
-    const { shapeFlag } = n2
+    const { shapeFlag, patchFlag } = n2
 
-    // use `patchUnkeyedChildren` / `patchKeyedChildren` to handle FRAGMENT patch
-    // if (patchFlag & PatchFlags.FRAGMENT) {}
+    // fast path
+    if (patchFlag & PatchFlags.KEYED_FRAGMENT) {
+      patchKeyedChildren(
+        c1 as VNode[],
+        c2 as VNodeArrayChildren,
+        container,
+        anchor,
+        parentComponent
+      )
+      return
+    }
+    if (patchFlag & PatchFlags.UNKEYED_FRAGMENT) {
+      // patchUnkeyedChildren is only used here
+      patchUnkeyedChildren(
+        c1 as VNode[],
+        c2 as VNodeArrayChildren,
+        container,
+        anchor,
+        parentComponent
+      )
+      return
+    }
 
     // origin comment: 3 situation: text, array or no children
     if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
@@ -467,7 +693,8 @@ function createBaseRenderer(options: RendererOptions): Renderer {
         } else {
           /**
            * 3. array to null
-           * Why do we unmount c1 without mounting c2?
+           * --- why do we unmount c1 without mounting c2? ---
+           *
            * - `vnode.children` is typed as `VNodeNormalizedChildren`
            * - After excluding `VNode[]` and `string`, the only valid value is `null`
            * - Therefore, there are no new children to mount
@@ -481,7 +708,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
         }
         if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
           // 4.1 text to array
-          mountChildren(c2, container, anchor, parentComponent)
+          mountChildren(c2 as VNodeArrayChildren, container, anchor, parentComponent)
         }
       }
     }
@@ -496,7 +723,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     c2: VNodeArrayChildren,
     container: RendererElement,
     anchor: RendererNode | null,
-    parentComponent: any
+    parentComponent: ComponentInternalInstance | null
   ) => {
     c1 = c1 || EMPTY_ARR
     c2 = c2 || EMPTY_ARR
@@ -524,7 +751,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     c2: VNodeArrayChildren,
     container: RendererElement,
     parentAnchor: RendererNode | null,
-    parentComponent: any
+    parentComponent: ComponentInternalInstance | null
   ) => {
     /* =============== preprocess =============== */
     // preprocess common prefixes / suffixes to prune the execution flow
@@ -632,7 +859,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     }
 
     // mount & move
-    const sequence = moved ? LIS(newIndexToOldIndexMap) : EMPTY_ARR
+    const sequence = moved ? lis(newIndexToOldIndexMap) : EMPTY_ARR
 
     j = sequence.length - 1
     for (i = toBePatched - 1; i >= 0; i--) {
@@ -652,15 +879,26 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     }
   }
 
-  /**
-   * element.insertBefore can handle moving existing DOM elements
-   */
   const move = (vnode: VNode, container: RendererElement, anchor: RendererNode | null) => {
-    const { el, shapeFlag } = vnode
-    if (shapeFlag & ShapeFlags.COMPONENT) {
-      // move(vnode.component)
+    const { type, el, shapeFlag, children } = vnode
+
+    if (type === Fragment) {
+      // move start text node
+      hostInsert(el!, container, anchor)
+      for (let i = 0; i < (children as VNode[]).length; i++) {
+        move((children as VNode[])[i], container, anchor)
+      }
+      // move end text node
+      hostInsert(vnode.anchor!, container, anchor)
       return
     }
+
+    if (shapeFlag & ShapeFlags.COMPONENT) {
+      move(vnode.component!.subTree, container, anchor)
+      return
+    }
+
+    // light: el.insertBefore can handle moving existing DOM elements
     hostInsert(el!, container, anchor)
   }
 

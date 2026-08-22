@@ -1,15 +1,16 @@
-import { isOn } from "@soppy-vue/shared"
+import { isModelListener, isOn } from "@soppy-vue/shared"
 import { patchClass, patchStyle, patchEvent, patchAttr } from "./modules"
+import type { RendererOptions } from "@soppy-vue/runtime-core"
 
-function patchProp(el, key, prevValue, nextValue) {
+const patchProp: RendererOptions<Node, Element>["patchProp"] = (el, key, prev, next) => {
   if (key === "class") {
-    return patchClass(el, nextValue)
+    patchClass(el, next)
   } else if (key === "style") {
-    patchStyle(el, prevValue, nextValue)
+    patchStyle(el, prev, next)
   } else if (isOn(key)) {
-    patchEvent(el, key, nextValue)
+    !isModelListener(key) && patchEvent(el, key, next)
   } else {
-    patchAttr(el, key, nextValue)
+    patchAttr(el, key, next)
   }
 }
 

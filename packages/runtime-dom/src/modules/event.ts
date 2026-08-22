@@ -1,7 +1,6 @@
 import type { MaybeArray } from "@soppy-vue/shared"
 import { ensureArray, hyphenate, isArray } from "@soppy-vue/shared"
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 type EventValue = MaybeArray<Function>
 
 const veiKey = Symbol("vue-event-invoker")

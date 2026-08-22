@@ -1,6 +1,7 @@
 {
   // use workspace TypeScript version instead of VSCode built-in
   "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "js/ts.suggest.autoImports": true,
 
   // prettier formatter settings
   "editor.formatOnSave": true,

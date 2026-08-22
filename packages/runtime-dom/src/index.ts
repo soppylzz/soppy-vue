@@ -18,3 +18,5 @@ const rendererOptions = extend({ patchProp }, nodeOps)
 const render = (vnode: any, container: any) => {
   return createRenderer(rendererOptions).render(vnode, container)
 }
+
+export { render }

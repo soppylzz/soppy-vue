@@ -39,7 +39,9 @@ function traverse(value: unknown, depth: number = Infinity, seen?: Map<unknown, 
       traverse(value[key], depth, seen)
     }
     for (const symbolKey of Object.getOwnPropertySymbols(value)) {
-      traverse(value[symbolKey], depth, seen)
+      if (Object.prototype.propertyIsEnumerable.call(value, symbolKey)) {
+        traverse(value[symbolKey as any], depth, seen)
+      }
     }
   }
   return value

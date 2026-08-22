@@ -4,46 +4,47 @@
  * - Similar branch-based optimizations were introduced in other hot paths in later Vue versions.
  *
  * @example
- * // declare self and child type
- * ShapeFlags.ELEMENT | ShapeFlags.STATEFUL_COMPONENT
- * // check type consistency
+ * declare self and child type:
+ * ```ts
+ * ShapeFlags.ELEMENT | ShapeFlags.TEXT_CHILDREN
+ * ```
+ * check type consistency:
+ * ```ts
  * shapeFlag & ShapeFlags.ELEMENT
+ * ```
  */
 enum ShapeFlags {
   // common flag
   ELEMENT = 1,
   FUNCTIONAL_COMPONENT = 1 << 1,
   STATEFUL_COMPONENT = 1 << 2,
+  COMPONENT = ShapeFlags.STATEFUL_COMPONENT | ShapeFlags.FUNCTIONAL_COMPONENT,
   // child state flag
   TEXT_CHILDREN = 1 << 3,
   ARRAY_CHILDREN = 1 << 4,
   SLOTS_CHILDREN = 1 << 5,
   // special flag
-  TELEPORT = 1 << 6,
-  SUSPENSE = 1 << 7,
-  COMPONENT_SHOULD_KEEP_ALIVE = 1 << 8,
-  COMPONENT_KEPT_ALIVE = 1 << 9,
-  // component flag
-  COMPONENT = ShapeFlags.STATEFUL_COMPONENT | ShapeFlags.FUNCTIONAL_COMPONENT,
+  // TELEPORT = 1 << 6,
+  // SUSPENSE = 1 << 7,
+  // COMPONENT_SHOULD_KEEP_ALIVE = 1 << 8,
+  // COMPONENT_KEPT_ALIVE = 1 << 9,
 }
 
 enum PatchFlags {
-  TEXT = 1,
+  HOISTED = -1,
+  TEXT = 1 << 0,
   CLASS = 1 << 1,
   STYLE = 1 << 2,
-  PROPS = 1 << 3,
-  FULL_PROPS = 1 << 4,
-  NEED_HYDRATION = 1 << 5,
-  STABLE_FRAGMENT = 1 << 6,
-  KEYED_FRAGMENT = 1 << 7,
-  UNKEYED_FRAGMENT = 1 << 8,
-  NEED_PATCH = 1 << 9,
-  DYNAMIC_SLOTS = 1 << 10,
-  DEV_ROOT_FRAGMENT = 1 << 11,
-  HOISTED = -1,
-  BAIL = -2,
-  // self-design: used to optimize process of fragment-patching
-  FRAGMENT = PatchFlags.KEYED_FRAGMENT | PatchFlags.UNKEYED_FRAGMENT,
+  FULL_PROPS = 1 << 3,
+  KEYED_FRAGMENT = 1 << 4,
+  UNKEYED_FRAGMENT = 1 << 5,
+  // PROPS = 1 << 3,
+  // DYNAMIC_SLOTS = 1 << 10,
+  // STABLE_FRAGMENT = 1 << 6,
+  // DEV_ROOT_FRAGMENT = 1 << 11,
+  // NEED_HYDRATION = 1 << 5,
+  // NEED_PATCH = 1 << 9,
+  // BAIL = -2,
 }
 
 export { ShapeFlags, PatchFlags }

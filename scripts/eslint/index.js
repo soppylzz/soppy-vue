@@ -95,14 +95,18 @@ export default defineConfig([
           prefer: "type-imports",
         },
       ],
+      // allow use `Function` directly
+      "@typescript-eslint/no-unsafe-function-type": "off",
+
       // allow `xxx && yyy`
       "@typescript-eslint/no-unused-expressions": "off",
+
       // allow `interface XXX extends {}`
       "@typescript-eslint/no-empty-object-type": "off",
 
       // temporarily disable any-check, for lib quick building
       "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": ["off", { argsIgnorePattern: "^_" }],
     },
   },
 ])
