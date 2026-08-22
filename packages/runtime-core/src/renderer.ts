@@ -72,11 +72,15 @@ interface Renderer<HostElement = RendererElement> {
   render: RootRenderFunction<HostElement>
 }
 
+export type { Renderer, RendererOptions, RendererNode, RendererElement, RootRenderFunction }
+
+/* ==================== render utils ==================== */
 function toggleRecurse({ effect, update }: ComponentInternalInstance, allowed: boolean) {
   // update ReactiveEffect.allowRecurse / ScheduleJob.allowRecurse at once
   effect.allowRecurse = update.allowRecurse = allowed
 }
 
+/* ==================== render creator ==================== */
 function createBaseRenderer<HostNode = RendererNode, HostElement = RendererElement>(
   options: RendererOptions<HostNode, HostElement>
 ): Renderer<HostElement>
@@ -912,4 +916,3 @@ function createRenderer<HostNode = RendererNode, HostElement = RendererElement>(
 }
 
 export { createRenderer }
-export type { RendererOptions, RendererNode, RendererElement }

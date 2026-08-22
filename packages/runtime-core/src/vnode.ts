@@ -69,7 +69,14 @@ type VNodeArrayChildren = (VNodeArrayChildren | VNodeChildAtom)[]
 type VNodeChild = VNodeChildAtom | VNodeArrayChildren
 type VNodeNormalizedChildren = string | VNodeArrayChildren | null
 
-export type { VNodeArrayChildren, VNodeChild, VNodeNormalizedChildren, VNodeKey }
+export type {
+  VNodeTypes,
+  VNodeProps,
+  VNodeArrayChildren,
+  VNodeChild,
+  VNodeNormalizedChildren,
+  VNodeKey,
+}
 
 /**
  * implementation of official vue3 is as follows:

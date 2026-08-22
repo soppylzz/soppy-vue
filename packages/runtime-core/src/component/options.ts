@@ -61,4 +61,4 @@ type ComponentOptions<
     >
   >
 
-export type { ComponentBaseOptions, ComponentOptions }
+export type { ComponentBaseOptions, ComponentOptions, RenderFunction }

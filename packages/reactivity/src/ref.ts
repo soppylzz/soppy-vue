@@ -49,7 +49,7 @@ declare const ShallowRefMarker: unique symbol
 
 type ShallowRef<T = any> = Ref<T> & { [ShallowRefMarker]?: true }
 
-export type { Ref, UnwrapRef, UnwrapRefSimple, ShallowRef }
+export type { Ref, UnwrapRef, UnwrapRefSimple, ShallowRef, ToRef, ToRefs }
 
 /* ==================== track/trigger utils ==================== */
 function trackRefValue(ref: RefBase<any>) {

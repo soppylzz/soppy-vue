@@ -1,4 +1,96 @@
-export * from "@soppy-vue/reactivity"
+/* ==================== api ==================== */
+export {
+  // normal
+  ref,
+  reactive,
+  proxyRefs,
+  computed,
+  watch,
+  watchEffect,
+  toRef,
+  toRefs,
+  isRef,
+  isProxy,
+  isReactive,
+  isShallow,
+  // advanced
+  triggerRef,
+  shallowRef,
+  shallowReactive,
+  toRaw,
+  // effect
+  effect,
+  ReactiveEffect,
+} from "@soppy-vue/reactivity"
 
-export * from "./renderer"
-export * from "./vnode"
+export {
+  onBeforeMount,
+  onMounted,
+  onBeforeUpdate,
+  onUpdated,
+  onBeforeUnmount,
+  onUnmounted,
+  onRenderTracked,
+  onRenderTriggered,
+} from "./apiLifecycle"
+
+export { provide, inject } from "./apiInject"
+export { nextTick, queuePostFlushCbs } from "./scheduler"
+
+export { getCurrentInstance } from "./component"
+export { createVNode, cloneVNode, isVNode, Fragment, Text, Comment } from "./vnode"
+
+export { createRenderer } from "./renderer"
+
+/* ==================== types ==================== */
+export type {
+  Ref,
+  ToRef,
+  ToRefs,
+  UnwrapRef,
+  ShallowRef,
+  ShallowReactive,
+  UnwrapNestedRefs,
+  // not-impl-yet: type infra of `watch`/`computed` API
+} from "@soppy-vue/reactivity"
+
+export type { InjectionKey } from "./apiInject"
+
+export type {
+  // component
+  Component,
+  ConcreteComponent,
+  FunctionalComponent,
+  ComponentInternalInstance,
+  SetupContext,
+  // component options
+  ComponentOptions,
+  ComponentBaseOptions,
+  RenderFunction,
+  // public instance
+  ComponentPublicInstance,
+  // slots
+  Slot,
+  Slots,
+  SlotsType,
+  // props
+  Prop,
+  PropType,
+} from "./component"
+
+export type {
+  VNode,
+  VNodeChild,
+  VNodeTypes,
+  VNodeProps,
+  VNodeArrayChildren,
+  VNodeNormalizedChildren,
+} from "./vnode"
+
+export type {
+  Renderer,
+  RendererNode,
+  RendererElement,
+  RendererOptions,
+  RootRenderFunction,
+} from "./renderer"

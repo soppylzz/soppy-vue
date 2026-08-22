@@ -1,6 +1,5 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-
   "permissions": {
     "allow": [
       "Read",
@@ -27,12 +26,9 @@
     ],
     "defaultMode": "acceptEdits"
   },
-
   "env": {
     "NODE_ENV": "development"
   },
-
   "claudeMdExcludes": ["**/dist/CLAUDE.md", "**/node_modules/**/CLAUDE.md"],
-
   "cleanupPeriodDays": 30
 }

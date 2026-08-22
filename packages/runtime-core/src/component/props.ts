@@ -56,7 +56,9 @@ type PropOptions<T = any, Default = T> = Partial<{
   validator(value: unknown, props: Data): boolean
 }>
 
-export type { PropType }
+type Prop<T, D = T> = PropOptions<T, D> | PropType<T>
+
+export type { Prop, PropType }
 
 /* ==================== norm propsOptions ==================== */
 type NormalizedProp = null | PropOptions

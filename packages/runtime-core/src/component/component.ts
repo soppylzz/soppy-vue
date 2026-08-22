@@ -146,10 +146,9 @@ export type {
   Data,
   Component,
   ConcreteComponent,
-  ComponentOptions,
   FunctionalComponent,
-  SetupContext,
   ComponentInternalInstance,
+  SetupContext,
 }
 
 let uid = 0

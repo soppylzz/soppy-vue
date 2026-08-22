@@ -72,13 +72,14 @@ type UnwrapSlotsType<S extends SlotsType, T = NonNullable<S[typeof SlotSymbol]>>
     >
 
 export type {
+  Slot,
+  Slots,
+  SlotsType,
   SlotTarget,
   RawSlots,
   InternalSlots,
-  Slots,
-  SlotsType,
-  StrictUnwrapSlotsType,
   UnwrapSlotsType,
+  StrictUnwrapSlotsType,
 }
 
 /* ==================== norm slots ==================== */
