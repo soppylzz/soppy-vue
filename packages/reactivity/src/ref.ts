@@ -201,8 +201,7 @@ function proxyRefs(objectWithRefs: any) {
   return new Proxy(objectWithRefs, {
     get(target, key, receiver) {
       const value = Reflect.get(target, key, receiver)
-
-      return isRef(value) ? value.value : ref
+      return isRef(value) ? value.value : value
     },
     set(target, key, newVal, receiver) {
       const oldVal = target[key]

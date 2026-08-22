@@ -240,7 +240,8 @@ function resetScheduling() {
 function triggerEffects(dep: Dep, debuggerEventExtraInfo?: DebuggerEventExtraInfo) {
   pauseScheduling()
   for (const effect of dep.keys()) {
-    if (!effect?.allowRecurse && !effect._running) continue
+    // skip self-triggering (recursion) unless allowRecurse is set
+    if (effect._running && !effect.allowRecurse) continue
 
     if (effect._dirtyLevel < DirtyLevels.DIRTY) {
       effect._dirtyLevel = DirtyLevels.DIRTY

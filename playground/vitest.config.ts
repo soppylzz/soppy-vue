@@ -6,4 +6,7 @@ export default defineConfig({
     environment: "node",
     include: ["node/**/*.spec.ts"],
   },
+  define: {
+    __DEV__: true,
+  },
 })
