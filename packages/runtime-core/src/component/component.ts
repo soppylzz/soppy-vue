@@ -103,6 +103,7 @@ interface ComponentInternalInstance {
   attrsProxy: Data | null
   props: Data
   propsDefaults: Data
+  provides: Data
 
   /* ===== communication ==================== */
   emit: EmitFn
@@ -175,6 +176,8 @@ function createComponentInstance(vnode: VNode, parent: ComponentInternalInstance
     attrsProxy: null,
     props: EMPTY_OBJ,
     propsDefaults: EMPTY_OBJ,
+    // not-impl-yet: use appContext as a fallback provides
+    provides: parent ? parent.provides : Object.create(null),
 
     emit: null!,
     slots: EMPTY_OBJ,
