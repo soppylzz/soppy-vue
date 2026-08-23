@@ -19,7 +19,7 @@ import {
   type RawSlots,
 } from "./component"
 import type { RendererNode } from "./renderer"
-import { VNodeInternals } from "./constant"
+import { RuntimeFlags } from "./constant"
 import { isProxy } from "@soppy-vue/reactivity"
 
 /**
@@ -85,7 +85,7 @@ export type {
  *  - `ExtraProps`: extends prop defination via `props: (VNodeProps & ExtraProps) | null`
  */
 interface VNode<HostNode = RendererNode, ExtraProps = { [key: string]: any }> {
-  [VNodeInternals.IS_VNODE]: true
+  [RuntimeFlags.IS_VNODE]: true
   type: VNodeTypes
   // ensure `props.class` can accepted
   props: (VNodeProps & ExtraProps) | null
@@ -218,7 +218,7 @@ function cloneVNode<T>(vnode: VNode<T>, extraProps?: (Data & VNodeProps) | null)
     extraProps && vnode.type !== Fragment ? patchFlag | PatchFlags.FULL_PROPS : patchFlag
 
   const cloned: VNode<T> = {
-    [VNodeInternals.IS_VNODE]: true,
+    [RuntimeFlags.IS_VNODE]: true,
     type: vnode.type,
     props: mergedProps,
     // official vue will deepCloneVNode children here, if in DEV mode
@@ -256,7 +256,7 @@ function createBaseVNode(
   needFullChildrenNormalization = false
 ): VNode {
   const vnode = {
-    [VNodeInternals.IS_VNODE]: true,
+    [RuntimeFlags.IS_VNODE]: true,
     type,
     props,
     children,
@@ -325,7 +325,7 @@ function createVNode(
 
 /* ==================== checks utils ==================== */
 function isVNode(value: unknown): value is VNode {
-  return value ? value[VNodeInternals.IS_VNODE] === true : false
+  return value ? value[RuntimeFlags.IS_VNODE] === true : false
 }
 
 /**

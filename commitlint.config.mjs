@@ -23,7 +23,9 @@ export default {
     "type-empty": [2, "never"],
     "subject-empty": [2, "never"],
     "subject-full-stop": [2, "never", "."],
-    "header-max-length": [0, "always", 120],
+    // disable length lint
+    "header-max-length": [0, "always", 100],
+    "body-max-line-length": [0, "always", 120],
   },
   ignores: [(msg) => msg.startsWith("WIP") || msg.startsWith("Merge")],
   defaultIgnores: true,

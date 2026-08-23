@@ -37,7 +37,13 @@ export {
 export { provide, inject } from "./apiInject"
 export { nextTick, queuePostFlushCbs } from "./scheduler"
 
-export { getCurrentInstance } from "./component"
+export {
+  getCurrentInstance,
+  // KeepAlive
+  KeepAlive,
+  onActivated,
+  onDeactivated,
+} from "./component"
 export { createVNode, cloneVNode, isVNode, Fragment, Text, Comment } from "./vnode"
 
 export { createRenderer } from "./renderer"
@@ -76,6 +82,8 @@ export type {
   // props
   Prop,
   PropType,
+  // KeepAlive
+  KeepAliveContext,
 } from "./component"
 
 export type {

@@ -5,14 +5,18 @@ const isObject = (val: unknown): val is Record<any, any> => val !== null && type
 const isFunction = (val: unknown): val is (...args: any[]) => any => typeof val === "function"
 const isSymbol = (val: unknown): val is symbol => typeof val === "symbol"
 
-export { isObject, isFunction, isArray, isString, isSymbol }
+// note: do not use Node.js's built-in `isRegExp`.
+const isRegExp = (val: unknown): val is RegExp =>
+  Object.prototype.toString.call(val) === "[object RegExp]"
+
+export { isObject, isFunction, isArray, isString, isSymbol, isRegExp }
 
 /* ==================== internal ==================== */
 const isOn = (key: string): key is `on${string}` => /^on[A-Z]/.test(key)
 const isModelListener = (key: string) => key.startsWith("onUpdate:")
 const isModelListenerPrunedOn = (key: string) => key.startsWith("update:")
 
-// primarily used for array proxy
+// note: mainly used for index-based access to array proxies
 const isIntegerKey = (key: unknown) =>
   isString(key) && key !== "NaN" && key[0] !== "-" && "" + parseInt(key, 10) === key
 

@@ -14,11 +14,16 @@ enum LifecycleHooks {
   // for debugging component track/trigger
   RENDER_TRACKED = "renderTracked",
   RENDER_TRIGGERED = "renderTriggered",
+
+  // for keepalive impl
+  DEACTIVATED = "deactivated",
+  ACTIVATED = "activated",
 }
 
 /* ==================== self design ==================== */
-enum VNodeInternals {
+enum RuntimeFlags {
   IS_VNODE = "__sv_isVNode",
+  IS_KEEP_ALIVE = "__sv_isKeepAlive",
 }
 
 /**
@@ -34,4 +39,4 @@ enum SlotInternals {
   IS_NORM = "__sv_isNormalized",
 }
 
-export { LifecycleHooks, VNodeInternals, SlotInternals }
+export { LifecycleHooks, RuntimeFlags, SlotInternals }

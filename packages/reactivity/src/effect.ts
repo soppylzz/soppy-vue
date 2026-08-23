@@ -20,6 +20,11 @@ type DebuggerEventExtraInfo = {
   oldVal?: any
 }
 
+interface DebuggerOptions {
+  onTrack?: (event: DebuggerEvent) => void
+  onTrigger?: (event: DebuggerEvent) => void
+}
+
 export { DebuggerEvent }
 
 /* ==================== effect infra ==================== */
@@ -45,7 +50,10 @@ class ReactiveEffect {
   // support for computedRefImpl
   _dirtyLevel = DirtyLevels.DIRTY
 
-  // __DEV__ only
+  /**
+   * effect on `__DEV__` only, defintion is
+   * equivalent to {@link DebuggerOptions}
+   */
   onTrack?: (event: DebuggerEvent) => void
   onTrigger?: (event: DebuggerEvent) => void
 
@@ -126,7 +134,7 @@ class ReactiveEffect {
 export { activeEffect, ReactiveEffect }
 
 /* ==================== create effect ==================== */
-interface ReactiveEffectOptions {
+interface ReactiveEffectOptions extends DebuggerEvent {
   scheduler?: EffectScheduler
   // indicates whether track when **creating**
   lazy?: boolean

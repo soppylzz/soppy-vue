@@ -28,5 +28,17 @@
     "https://json-schema.org/": true,
     "https://developer.microsoft.com/json-schemas/": true,
     "https://unpkg.com/": true
+  },
+
+  // synchronize commitlint and vscode msg editor
+  "git.inputValidation": false,
+  "scm.inputMinLineCount": 5,
+  "[scminput]": {
+    "editor.rulers": [],
+    "editor.wordWrap": "off"
+  },
+  "[git-commit]": {
+    "editor.rulers": [],
+    "editor.wordWrap": "off"
   }
 }

@@ -8,7 +8,7 @@ import {
 } from "@soppy-vue/shared"
 import type { VNode, VNodeArrayChildren, VNodeKey } from "./vnode"
 import { Fragment, invokeVNodeHook, isSameVNodeType, normalizeVNode, Text } from "./vnode"
-import type { ComponentInternalInstance, Data } from "./component"
+import type { ComponentInternalInstance, Data, KeepAliveContext } from "./component"
 import {
   createComponentInstance,
   setupComponent,
@@ -17,6 +17,7 @@ import {
   shouldUpdateComponent,
   updateHOCHostEl,
   updateSlots,
+  isKeepAlive,
 } from "./component"
 import { ReactiveEffect, resetTracking, setTracking } from "@soppy-vue/reactivity"
 import type { SchedulerJob } from "./scheduler"
@@ -74,6 +75,45 @@ interface Renderer<HostElement = RendererElement> {
 
 export type { Renderer, RendererOptions, RendererNode, RendererElement, RootRenderFunction }
 
+/* ==================== render internals ==================== */
+
+interface RendererInternals<HostNode = RendererNode, HostElement = RendererElement> {
+  patch: (
+    n1: VNode | null,
+    n2: VNode,
+    container: RendererElement,
+    anchor?: RendererNode | null,
+    parentComponent?: ComponentInternalInstance | null
+  ) => void
+  unmount: (vnode: VNode, parentComponent: ComponentInternalInstance | null) => void
+  remove: (vnode: VNode) => void
+  move: (vnode: VNode, container: RendererElement, anchor: RendererNode | null) => void
+  mountComponent: (
+    initialVNode: VNode,
+    container: RendererElement,
+    anchor: RendererNode | null,
+    parentComponent: ComponentInternalInstance | null
+  ) => void
+  mountChildren: (
+    children: VNodeArrayChildren,
+    container: RendererElement,
+    anchor: RendererNode | null,
+    parentComponent: ComponentInternalInstance | null,
+    start?: number
+  ) => void
+  patchChildren: (
+    n1: VNode | null,
+    n2: VNode,
+    container: RendererElement,
+    anchor: RendererNode | null,
+    parentComponent: ComponentInternalInstance | null
+  ) => void
+  next: (vnode: VNode) => RendererNode | null
+  options: RendererOptions<HostNode, HostElement>
+}
+
+export type { RendererInternals }
+
 /* ==================== render utils ==================== */
 function toggleRecurse({ effect, update }: ComponentInternalInstance, allowed: boolean) {
   // update ReactiveEffect.allowRecurse / ScheduleJob.allowRecurse at once
@@ -122,7 +162,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     }
   }
 
-  const getNextHostNode = (vnode: VNode): RendererNode | null => {
+  const getNextHostNode: RendererInternals["next"] = (vnode: VNode): RendererNode | null => {
     if (vnode.shapeFlag & ShapeFlags.COMPONENT) {
       return getNextHostNode(vnode.component!.subTree)
     }
@@ -130,29 +170,13 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     return hostNextSibling((vnode.anchor || vnode.el)!)
   }
 
-  /* ==================== exposed methods ==================== */
-  const render: RootRenderFunction = (vnode, container) => {
-    if (vnode == null) {
-      container._vnode && unmount(container._vnode, null)
-    } else {
-      patch(container._vnode || null, vnode, container)
-    }
-
-    // handle preFlushCbs that are not handled within comp instance, as well as all postFlushCbs
-    flushPreFlushCbs()
-    flushPostFlushCbs()
-
-    // bind a vnode to a real HostElement, enable bi-directional access
-    container._vnode = vnode
-  }
-
   /* ==================== internal methods (main) ==================== */
-  const patch = (
-    n1: VNode | null, // null indicates this is a mount point
-    n2: VNode,
-    container: RendererElement,
-    anchor: RendererNode | null = null,
-    parentComponent: ComponentInternalInstance | null = null
+  const patch: RendererInternals["patch"] = (
+    n1,
+    n2,
+    container,
+    anchor = null,
+    parentComponent = null
   ) => {
     // vnode remain unchanged, skip
     if (n1 === n2) return
@@ -203,7 +227,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     }
   }
 
-  const remove = (vnode: VNode) => {
+  const remove: RendererInternals["remove"] = (vnode) => {
     const { type, el, anchor } = vnode
 
     if (type === Fragment) {
@@ -239,8 +263,37 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     performRemove()
   }
 
-  const unmount = (vnode: VNode, parentComponent: ComponentInternalInstance | null) => {
+  const move: RendererInternals["move"] = (vnode, container, anchor) => {
+    const { type, el, shapeFlag, children } = vnode
+
+    if (type === Fragment) {
+      // move start text node
+      hostInsert(el!, container, anchor)
+      for (let i = 0; i < (children as VNode[]).length; i++) {
+        move((children as VNode[])[i], container, anchor)
+      }
+      // move end text node
+      hostInsert(vnode.anchor!, container, anchor)
+      return
+    }
+
+    if (shapeFlag & ShapeFlags.COMPONENT) {
+      move(vnode.component!.subTree, container, anchor)
+      return
+    }
+
+    // light: el.insertBefore can handle moving existing DOM elements
+    hostInsert(el!, container, anchor)
+  }
+
+  const unmount: RendererInternals["unmount"] = (vnode, parentComponent) => {
     const { type, shapeFlag, children } = vnode
+
+    if (shapeFlag & ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE) {
+      // light: the specific unmount logic is in `ctx.deactivate` [KEEP_ALIVE].
+      ;(parentComponent!.ctx as KeepAliveContext).deactivate(vnode)
+      return
+    }
 
     invokeVNodeHook("onVNodeBeforeUnmount", vnode)
     /**
@@ -552,16 +605,24 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     update()
   }
 
-  const mountComponent = (
-    initialVNode: VNode,
-    container: RendererElement,
-    anchor: RendererNode | null,
-    parentComponent: ComponentInternalInstance | null
+  const mountComponent: RendererInternals["mountComponent"] = (
+    initialVNode,
+    container,
+    anchor,
+    parentComponent
   ) => {
     const instance = (initialVNode.component = createComponentInstance(
       initialVNode,
       parentComponent
     ))
+
+    if (isKeepAlive(initialVNode)) {
+      /**
+       * light: provide DOM manipulation fn to `KeepAliveImpl`; both `mount`
+       * and `unmount` are implemented internally. [KEEP_ALIVE].
+       */
+      ;(instance.ctx as KeepAliveContext).renderer = internals
+    }
 
     setupComponent(instance)
     setupRenderEffect(instance, initialVNode, container, anchor)
@@ -603,19 +664,24 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     parentComponent: ComponentInternalInstance | null
   ) => {
     if (n1 == null) {
-      mountComponent(n2, container, anchor, parentComponent)
+      if (n2.shapeFlag & ShapeFlags.COMPONENT_KEPT_ALIVE) {
+        // light: the specific mount logic is in `ctx.activate` [KEEP_ALIVE].
+        ;(parentComponent!.ctx as KeepAliveContext).activate(n2, container, anchor)
+      } else {
+        mountComponent(n2, container, anchor, parentComponent)
+      }
     } else {
       updateComponent(n1, n2)
     }
   }
 
   /* ==================== internal methods (children) ==================== */
-  const mountChildren = (
-    children: VNodeArrayChildren,
-    container: RendererElement,
-    anchor: RendererNode | null,
-    parentComponent: ComponentInternalInstance | null,
-    start: number = 0
+  const mountChildren: RendererInternals["mountChildren"] = (
+    children,
+    container,
+    anchor,
+    parentComponent,
+    start = 0
   ) => {
     for (let i = start; i < children.length; i++) {
       const child = normalizeVNode(children[i])
@@ -638,17 +704,17 @@ function createBaseRenderer(options: RendererOptions): Renderer {
    * - `patch` is responsible for driving the recursive traversal
    * - `patchChildren` handles the downstream logic of `patch`, specifically to handle `vnode.children`
    */
-  const patchChildren = (
-    n1: VNode,
-    n2: VNode,
-    container: RendererElement,
-    anchor: RendererNode | null,
-    parentComponent: ComponentInternalInstance | null
+  const patchChildren: RendererInternals["patchChildren"] = (
+    n1,
+    n2,
+    container,
+    anchor,
+    parentComponent
   ) => {
     const c1 = n1 && n1.children
     const c2 = n2 && n2.children
 
-    const { shapeFlag: prevShapeFlag = 0 } = n1
+    const { shapeFlag: prevShapeFlag = 0 } = n1 ?? {}
     const { shapeFlag, patchFlag } = n2
 
     // fast path
@@ -883,27 +949,33 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     }
   }
 
-  const move = (vnode: VNode, container: RendererElement, anchor: RendererNode | null) => {
-    const { type, el, shapeFlag, children } = vnode
-
-    if (type === Fragment) {
-      // move start text node
-      hostInsert(el!, container, anchor)
-      for (let i = 0; i < (children as VNode[]).length; i++) {
-        move((children as VNode[])[i], container, anchor)
-      }
-      // move end text node
-      hostInsert(vnode.anchor!, container, anchor)
-      return
+  /* ==================== exposed methods ==================== */
+  const render: RootRenderFunction = (vnode, container) => {
+    if (vnode == null) {
+      container._vnode && unmount(container._vnode, null)
+    } else {
+      patch(container._vnode || null, vnode, container)
     }
 
-    if (shapeFlag & ShapeFlags.COMPONENT) {
-      move(vnode.component!.subTree, container, anchor)
-      return
-    }
+    // handle preFlushCbs that are not handled within comp instance, as well as all postFlushCbs
+    flushPreFlushCbs()
+    flushPostFlushCbs()
 
-    // light: el.insertBefore can handle moving existing DOM elements
-    hostInsert(el!, container, anchor)
+    // bind a vnode to a real HostElement, enable bi-directional access
+    container._vnode = vnode
+  }
+
+  // exposed for KeepAlive
+  const internals: RendererInternals = {
+    patch,
+    unmount,
+    remove,
+    move,
+    mountComponent,
+    mountChildren,
+    patchChildren,
+    next: getNextHostNode,
+    options,
   }
 
   return { render }

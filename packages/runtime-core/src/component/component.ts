@@ -43,6 +43,14 @@ interface FunctionalComponent<
   props?: any
   emits?: Emits | (keyof Emits)[]
   slots?: IfAny<S, Slots, SlotsType<S>>
+  /**
+   * explicitly define fn component display name, difference from fn.name:
+   * - fn.name: comes from the JavaScript fn name, often mangled in prod
+   *   by minifiers (e.g. terser). can be lost for anonymous or wrapped
+   *   functions
+   * - display: explicit field provided by vue (official use displayName)
+   */
+  display?: string
 }
 
 /* ==================== internal instance ==================== */
@@ -133,6 +141,7 @@ interface ComponentInternalInstance {
   /* ===== lifecycle hooks ==================== */
   isMounted: boolean
   isUnmounted: boolean
+  isDeactivated: boolean
 
   [LifecycleHooks.BEFORE_MOUNT]: LifecycleHook
   [LifecycleHooks.MOUNTED]: LifecycleHook
@@ -140,6 +149,9 @@ interface ComponentInternalInstance {
   [LifecycleHooks.UNMOUNTED]: LifecycleHook
   [LifecycleHooks.BEFORE_UPDATE]: LifecycleHook
   [LifecycleHooks.UPDATED]: LifecycleHook
+
+  [LifecycleHooks.DEACTIVATED]: LifecycleHook
+  [LifecycleHooks.ACTIVATED]: LifecycleHook
 }
 
 export type {
@@ -196,6 +208,7 @@ function createComponentInstance(vnode: VNode, parent: ComponentInternalInstance
 
     isMounted: false,
     isUnmounted: false,
+    isDeactivated: false,
 
     beforeMount: null,
     mounted: null,
@@ -203,6 +216,8 @@ function createComponentInstance(vnode: VNode, parent: ComponentInternalInstance
     unmounted: null,
     beforeUpdate: null,
     updated: null,
+    deactivated: null,
+    activated: null,
   }
 
   instance.ctx = { _: instance }
@@ -350,4 +365,18 @@ function getExposeProxy(instance: ComponentInternalInstance) {
   )
 }
 
-export { createComponentInstance, setupComponent, isStatefulComponent, getExposeProxy }
+function getComponentName(Component: ConcreteComponent) {
+  /**
+   * not-impl-yet: the official vue3 impl also uses `includeInferred && Component.__name`
+   * to get the fallback component name inferred from SFC filename at compile‑time.
+   */
+  return isFunction(Component) ? Component.display || Component.name : Component.name
+}
+
+export {
+  createComponentInstance,
+  setupComponent,
+  isStatefulComponent,
+  getExposeProxy,
+  getComponentName,
+}

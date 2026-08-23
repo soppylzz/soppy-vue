@@ -5,7 +5,6 @@ import { getExposeProxy, isStatefulComponent } from "./component"
 import type { ComponentBaseOptions } from "./options"
 import type { EmitFn, EmitsOptions } from "./emits"
 import { track } from "@soppy-vue/reactivity"
-import { nextTick } from "../scheduler"
 
 type ComponentPublicInstance<
   Props = {}, // origin: props type extracted from props option
@@ -53,7 +52,16 @@ type CreateComponentPublicInstance<
   ComponentBaseOptions<Props, Emits, string>
 >
 
-export type { ComponentPublicInstance, CreateComponentPublicInstance }
+/**
+ * mainly exposed to `KeepAliveContext` as ancestor
+ * type, to ensure the assertion succeeds?
+ */
+interface ComponentRenderContext {
+  [key: string]: any
+  _: ComponentInternalInstance
+}
+
+export type { ComponentPublicInstance, CreateComponentPublicInstance, ComponentRenderContext }
 
 function getPublicInstance(instance: ComponentInternalInstance | null) {
   if (!instance) return null
@@ -84,7 +92,7 @@ const publicPropertiesMap: PublicPropertiesMap = extend(
 )
 
 const publicInstanceProxyHandler: ProxyHandler<any> = {
-  get({ _: instance }, key: string) {
+  get({ _: instance }: ComponentRenderContext, key: string) {
     const { ctx } = instance
 
     const publicGetter = publicPropertiesMap[key]
@@ -103,7 +111,7 @@ const publicInstanceProxyHandler: ProxyHandler<any> = {
       return ctx[key]
     }
   },
-  set({ _: instance }, key: string, value) {
+  set({ _: instance }: ComponentRenderContext, key: string, value) {
     const { data, ctx } = instance
 
     if (data !== EMPTY_OBJ && hasOwn(data, key)) {

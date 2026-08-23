@@ -3,6 +3,7 @@ import type { VNodeChild } from "../vnode"
 import type { Component, SetupContext } from "./component"
 import type { CreateComponentPublicInstance } from "./publicInstance"
 import type { EmitsOptions } from "./emits"
+import type { RuntimeFlags } from "../constant"
 
 type RenderFunction = () => VNodeChild
 
@@ -37,6 +38,7 @@ type ComponentBaseOptions<
    * through `[key: string]: any` — losing type precision entirely.
    */
   props?: any
+  [RuntimeFlags.IS_KEEP_ALIVE]?: boolean
 }
 
 type ComponentOptions<
