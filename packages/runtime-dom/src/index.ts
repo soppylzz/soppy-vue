@@ -1,5 +1,5 @@
 import { extend } from "@soppy-vue/shared"
-import type { Renderer } from "@soppy-vue/runtime-core"
+import type { Renderer, RootRenderFunction } from "@soppy-vue/runtime-core"
 import { createRenderer } from "@soppy-vue/runtime-core"
 import { patchProp } from "./patchProp"
 import { nodeOps } from "./nodeOps"
@@ -14,10 +14,20 @@ const rendererOptions = extend({ patchProp }, nodeOps)
 const ensureRenderer = () =>
   renderer || (renderer = createRenderer<Node, Element | ShadowRoot>(rendererOptions))
 
-// const render = ((...args) => {
-//   ensureRenderer().render(...args)
-// }) as RootRenderFunction<Element | ShadowRoot>
-const render = ensureRenderer().render
+const render = ((...args) => {
+  ensureRenderer().render(...args)
+}) as RootRenderFunction<Element | ShadowRoot>
+
+// const render = ensureRenderer().render
+// compiled: declare const render: import("@soppy-vue/runtime-core").RootRenderFunction<Element | ShadowRoot>;
+
+// DOM-only components
+export {
+  // Transition
+  Transition,
+} from "./components"
+
+export type { TransitionProps } from "./components"
 
 /**
  * re-export everything from runtime-core

@@ -39,4 +39,10 @@ enum SlotInternals {
   IS_NORM = "__sv_isNormalized",
 }
 
-export { LifecycleHooks, RuntimeFlags, SlotInternals }
+enum MoveTypes {
+  REORDER = 1,
+  ENTER = 1 << 1,
+  LEAVE = 1 << 2,
+}
+
+export { MoveTypes, LifecycleHooks, RuntimeFlags, SlotInternals }

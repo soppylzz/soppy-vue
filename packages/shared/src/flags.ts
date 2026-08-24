@@ -31,8 +31,16 @@ enum ShapeFlags {
 }
 
 enum PatchFlags {
+  /**
+   * disable compiler optimization, does full recursive
+   * diff, produced by Transition
+   */
+  BAIL = -2,
+  /**
+   * for full static node, vnode hoisted outside render()
+   */
   HOISTED = -1,
-  TEXT = 1 << 0,
+  TEXT = 1,
   CLASS = 1 << 1,
   STYLE = 1 << 2,
   FULL_PROPS = 1 << 3,
@@ -44,7 +52,6 @@ enum PatchFlags {
   // DEV_ROOT_FRAGMENT = 1 << 11,
   // NEED_HYDRATION = 1 << 5,
   // NEED_PATCH = 1 << 9,
-  // BAIL = -2,
 }
 
 export { ShapeFlags, PatchFlags }

@@ -1,4 +1,4 @@
-import { isArray } from "./guards"
+import { isArray, isString } from "./guards"
 import { capitalize } from "./string"
 
 /* ==================== common ==================== */
@@ -16,10 +16,9 @@ const hasOwn = (val: object, key: string | symbol): key is keyof typeof val =>
 
 const getProto = (val: object): object | null => Object.getPrototypeOf(val)
 
-const syncRunFns = (fns: Function[], arg?: any) => {
-  for (let i = 0; i < fns.length; i++) {
-    fns[i](arg)
-  }
+// `MaybeArray` should be handled before calling this fn
+const syncRunFns = (fns: Function[], ...args: any[]) => {
+  fns.forEach((fn) => fn(...args))
 }
 
 /**
@@ -37,4 +36,9 @@ const toHandlerKey = <T extends string>(str: T) => {
   return s as T extends "" ? "" : `on${Capitalize<T>}`
 }
 
-export { toHandlerKey }
+const toNumber = (val: any): any => {
+  const num = isString(val) ? Number(val) : NaN
+  return isNaN(num) ? val : num
+}
+
+export { toHandlerKey, toNumber }

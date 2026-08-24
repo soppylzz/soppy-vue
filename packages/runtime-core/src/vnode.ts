@@ -13,12 +13,13 @@ import {
 import { normalizeClass, normalizeStyle } from "./props"
 import {
   currentRenderingInstance,
+  type TransitionHooks,
   type Component,
   type ComponentInternalInstance,
   type Data,
   type RawSlots,
 } from "./component"
-import type { RendererNode } from "./renderer"
+import type { RendererElement, RendererNode } from "./renderer"
 import { RuntimeFlags } from "./constant"
 import { isProxy } from "@soppy-vue/reactivity"
 
@@ -84,10 +85,15 @@ export type {
  *  - `HostElement`: related to implementation of `teleport`, `transition`
  *  - `ExtraProps`: extends prop defination via `props: (VNodeProps & ExtraProps) | null`
  */
-interface VNode<HostNode = RendererNode, ExtraProps = { [key: string]: any }> {
+interface VNode<
+  HostNode = RendererNode,
+  // consumed by transition hooks
+  HostElement = RendererElement,
+  ExtraProps = { [key: string]: any },
+> {
   [RuntimeFlags.IS_VNODE]: true
   type: VNodeTypes
-  // ensure `props.class` can accepted
+  // ensure `props.class` can be accepted
   props: (VNodeProps & ExtraProps) | null
   children: VNodeNormalizedChildren
   component: ComponentInternalInstance | null
@@ -105,6 +111,9 @@ interface VNode<HostNode = RendererNode, ExtraProps = { [key: string]: any }> {
   // optimize runtime
   shapeFlag: number
   patchFlag: number
+
+  // transition impl
+  transition: TransitionHooks<HostElement> | null
 }
 
 export type { VNode }
@@ -203,7 +212,10 @@ function mergeProps(...args: (Data & VNodeProps)[]) {
   return merged
 }
 
-function cloneVNode<T>(vnode: VNode<T>, extraProps?: (Data & VNodeProps) | null): VNode<T> {
+function cloneVNode<N, E>(
+  vnode: VNode<N, E>,
+  extraProps?: (Data & VNodeProps) | null
+): VNode<N, E> {
   const { props, patchFlag, children } = vnode
   const mergedProps = extraProps ? mergeProps(props || {}, extraProps) : props
 
@@ -217,11 +229,11 @@ function cloneVNode<T>(vnode: VNode<T>, extraProps?: (Data & VNodeProps) | null)
   const newPatchFlag =
     extraProps && vnode.type !== Fragment ? patchFlag | PatchFlags.FULL_PROPS : patchFlag
 
-  const cloned: VNode<T> = {
+  const cloned: VNode<N, E> = {
     [RuntimeFlags.IS_VNODE]: true,
     type: vnode.type,
     props: mergedProps,
-    // official vue will deepCloneVNode children here, if in DEV mode
+    // official vue will deepCloneVNode children here in DEV mode
     children: children,
     component: vnode.component,
 
@@ -231,6 +243,8 @@ function cloneVNode<T>(vnode: VNode<T>, extraProps?: (Data & VNodeProps) | null)
 
     shapeFlag: vnode.shapeFlag,
     patchFlag: newPatchFlag,
+
+    transition: vnode.transition,
   }
   return cloned
 }
@@ -268,6 +282,8 @@ function createBaseVNode(
 
     shapeFlag,
     patchFlag,
+
+    transition: null,
   } as VNode
 
   if (needFullChildrenNormalization) {

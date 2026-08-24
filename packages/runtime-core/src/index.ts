@@ -43,6 +43,13 @@ export {
   KeepAlive,
   onActivated,
   onDeactivated,
+  // Transition
+  useTransitionState,
+  resolveTransitionHooks,
+  injectTransitionHooks,
+  getTransitionRawChildren,
+  BaseTransition,
+  BaseTransitionPropsValidators,
 } from "./component"
 export { createVNode, cloneVNode, isVNode, Fragment, Text, Comment } from "./vnode"
 
@@ -84,6 +91,10 @@ export type {
   PropType,
   // KeepAlive
   KeepAliveContext,
+  // Transition
+  TransitionHooks,
+  TransitionState,
+  BaseTransitionProps,
 } from "./component"
 
 export type {

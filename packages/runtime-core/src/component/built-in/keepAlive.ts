@@ -17,8 +17,8 @@ import {
   queuePostFlushCbs,
 } from "@soppy-vue/runtime-dom"
 import type { ComponentRenderContext } from "../publicInstance"
-import { LifecycleHooks, RuntimeFlags } from "../../constant"
-import type { RendererInternals } from "../../renderer"
+import { LifecycleHooks, MoveTypes, RuntimeFlags } from "../../constant"
+import { type RendererInternals } from "../../renderer"
 import { isArray, isRegExp, isString, ShapeFlags, syncRunFns } from "@soppy-vue/shared"
 import { getComponentName } from "../component"
 import type { VNodeKey } from "../../vnode"
@@ -93,9 +93,10 @@ const KeepAliveImpl: ComponentOptions = {
       const instance = vnode.component!
       /**
        * light: move the cached vnode within the live DOM from
-       * storageContainer
+       * storageContainer. add `MoveType` to enable
+       * special handling for `Transition`
        */
-      move(vnode, container, anchor)
+      move(vnode, container, anchor, MoveTypes.ENTER)
       patch(instance.vnode, vnode, container, anchor, instance)
 
       queuePostFlushCbs(() => {
@@ -106,11 +107,8 @@ const KeepAliveImpl: ComponentOptions = {
     }
     sharedContext.deactivate = (vnode: VNode) => {
       const instance = vnode.component!
-      /**
-       * light: move the vnode out of the live DOM into storageContainer,
-       * keeping it alive for later re-activation.
-       */
-      move(vnode, storageContainer, null)
+      // light: see above
+      move(vnode, storageContainer, null, MoveTypes.LEAVE)
 
       queuePostFlushCbs(() => {
         instance.deactivated && syncRunFns(instance.deactivated)
@@ -121,6 +119,7 @@ const KeepAliveImpl: ComponentOptions = {
 
     function unmount(vnode: VNode) {
       resetShapeFlag(vnode)
+      // in official vue3, even here, `doRemove` is set to true?
       _unmount(vnode, instance)
     }
 

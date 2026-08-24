@@ -8,7 +8,12 @@ import {
 } from "@soppy-vue/shared"
 import type { VNode, VNodeArrayChildren, VNodeKey } from "./vnode"
 import { Fragment, invokeVNodeHook, isSameVNodeType, normalizeVNode, Text } from "./vnode"
-import type { ComponentInternalInstance, Data, KeepAliveContext } from "./component"
+import type {
+  ComponentInternalInstance,
+  Data,
+  KeepAliveContext,
+  TransitionHooks,
+} from "./component"
 import {
   createComponentInstance,
   setupComponent,
@@ -29,7 +34,7 @@ import {
   queuePostFlushCbs,
 } from "./scheduler"
 import { lis } from "./lis"
-import { LifecycleHooks } from "./constant"
+import { LifecycleHooks, MoveTypes } from "./constant"
 
 /**
  * light: decoupling the render process from DOM specification
@@ -76,7 +81,6 @@ interface Renderer<HostElement = RendererElement> {
 export type { Renderer, RendererOptions, RendererNode, RendererElement, RootRenderFunction }
 
 /* ==================== render internals ==================== */
-
 interface RendererInternals<HostNode = RendererNode, HostElement = RendererElement> {
   patch: (
     n1: VNode | null,
@@ -87,7 +91,12 @@ interface RendererInternals<HostNode = RendererNode, HostElement = RendererEleme
   ) => void
   unmount: (vnode: VNode, parentComponent: ComponentInternalInstance | null) => void
   remove: (vnode: VNode) => void
-  move: (vnode: VNode, container: RendererElement, anchor: RendererNode | null) => void
+  move: (
+    vnode: VNode,
+    container: RendererElement,
+    anchor: RendererNode | null,
+    moveType: MoveTypes
+  ) => void
   mountComponent: (
     initialVNode: VNode,
     container: RendererElement,
@@ -118,6 +127,14 @@ export type { RendererInternals }
 function toggleRecurse({ effect, update }: ComponentInternalInstance, allowed: boolean) {
   // update ReactiveEffect.allowRecurse / ScheduleJob.allowRecurse at once
   effect.allowRecurse = update.allowRecurse = allowed
+}
+
+function needTransition(transition: TransitionHooks | null) {
+  /**
+   * origin implement with not considering suspense: `transition && !transition.persisted`
+   * omit handling persisted, as there is no place in our impl where `persisted` is consumed
+   */
+  return !!transition
 }
 
 /* ==================== render creator ==================== */
@@ -228,7 +245,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
   }
 
   const remove: RendererInternals["remove"] = (vnode) => {
-    const { type, el, anchor } = vnode
+    const { type, el, anchor, transition, shapeFlag } = vnode
 
     if (type === Fragment) {
       /**
@@ -252,25 +269,43 @@ function createBaseRenderer(options: RendererOptions): Renderer {
       hostRemove(end)
     }
 
-    const performRemove = () => {
+    const remove_ = () => {
       hostRemove(el!)
+      transition?.afterLeave?.()
     }
 
     /**
-     * customize additional pre-remove process here
-     * such as run transition `leave()` of official vue3
+     * light: customize pre-remove process here
+     * for transition implementation
      */
-    performRemove()
+    if (shapeFlag & ShapeFlags.ELEMENT && transition) {
+      const { leave, delayLeave } = transition
+      const performLeave = () => leave(el!, remove_)
+
+      if (delayLeave) {
+        delayLeave(vnode.el!, remove_, performLeave)
+      } else {
+        performLeave()
+      }
+    } else {
+      remove_()
+    }
   }
 
-  const move: RendererInternals["move"] = (vnode, container, anchor) => {
-    const { type, el, shapeFlag, children } = vnode
+  const move: RendererInternals["move"] = (
+    vnode,
+    container,
+    anchor,
+    // consumed by transition
+    moveType
+  ) => {
+    const { type, el, shapeFlag, children, transition } = vnode
 
     if (type === Fragment) {
       // move start text node
       hostInsert(el!, container, anchor)
       for (let i = 0; i < (children as VNode[]).length; i++) {
-        move((children as VNode[])[i], container, anchor)
+        move((children as VNode[])[i], container, anchor, moveType)
       }
       // move end text node
       hostInsert(vnode.anchor!, container, anchor)
@@ -278,12 +313,46 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     }
 
     if (shapeFlag & ShapeFlags.COMPONENT) {
-      move(vnode.component!.subTree, container, anchor)
+      move(vnode.component!.subTree, container, anchor, moveType)
       return
     }
 
+    // do speicial move for transition component
+    const doSpecialTransition =
+      transition &&
+      shapeFlag & ShapeFlags.ELEMENT && // handle element only
+      moveType & (MoveTypes.ENTER | MoveTypes.LEAVE) // handle keep alive
+
     // light: el.insertBefore can handle moving existing DOM elements
-    hostInsert(el!, container, anchor)
+    const remove = () => hostInsert(el!, container, anchor)
+
+    if (doSpecialTransition) {
+      if (moveType & MoveTypes.ENTER) {
+        transition!.beforeEnter(el!)
+        hostInsert(el!, container, anchor)
+        queuePostFlushCbs(() => {
+          transition!.enter(el!)
+        })
+      }
+      if (moveType & MoveTypes.LEAVE) {
+        const { leave, delayLeave, afterLeave } = transition!
+
+        const performLeave = () => {
+          leave(el!, () => {
+            remove()
+            afterLeave?.()
+          })
+        }
+
+        if (delayLeave) {
+          delayLeave(el!, remove, performLeave)
+        } else {
+          performLeave()
+        }
+      }
+    } else {
+      remove()
+    }
   }
 
   const unmount: RendererInternals["unmount"] = (vnode, parentComponent) => {
@@ -379,7 +448,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     anchor: RendererNode | null,
     parentComponent: ComponentInternalInstance | null
   ) => {
-    const { props, shapeFlag } = vnode
+    const { props, shapeFlag, transition } = vnode
     const el: RendererElement = (vnode.el = hostCreateElement(vnode.type as string))
 
     /**
@@ -413,8 +482,14 @@ function createBaseRenderer(options: RendererOptions): Renderer {
       }
     }
 
+    const doTransition = needTransition(transition)
+    doTransition && transition!.beforeEnter(el)
+
     hostInsert(el, container, anchor)
-    queuePostFlushCbs(() => invokeVNodeHook("onVNodeMounted", vnode))
+    queuePostFlushCbs(() => {
+      invokeVNodeHook("onVNodeMounted", vnode)
+      doTransition && transition!.enter(el)
+    })
   }
 
   const patchElement = (
@@ -941,7 +1016,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
         patch(null, nextChild, container, anchor, parentComponent)
       } else if (moved) {
         if (j < 0 || i !== sequence[j]) {
-          move(nextChild, container, anchor)
+          move(nextChild, container, anchor, MoveTypes.REORDER)
         } else {
           j--
         }
