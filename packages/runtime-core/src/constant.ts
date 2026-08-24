@@ -24,6 +24,7 @@ enum LifecycleHooks {
 enum RuntimeFlags {
   IS_VNODE = "__sv_isVNode",
   IS_KEEP_ALIVE = "__sv_isKeepAlive",
+  IS_TELEPORT = "__sv_isTeleport",
 }
 
 /**
@@ -45,4 +46,25 @@ enum MoveTypes {
   LEAVE = 1 << 2,
 }
 
-export { MoveTypes, LifecycleHooks, RuntimeFlags, SlotInternals }
+enum TeleportMoveTypes {
+  /**
+   * related to `to`, indicates target has been changed
+   * @example
+   * ```vue
+   * <Teleport :to="condition ? '#a' : '#b'"><div/></Teleport>
+   * ```
+   */
+  TARGET_CHANGE = 1,
+  // Teleport's own location has changed
+  REORDER = 1 << 1,
+  /**
+   * not-impl: TOGGLE
+   * related to `disabled`, indicates whether teleport is enabled
+   * @example
+   * ```vue
+   * <Teleport :disabled="isDisabled"><div/></Teleport>
+   * ```
+   */
+}
+
+export { MoveTypes, TeleportMoveTypes, LifecycleHooks, RuntimeFlags, SlotInternals }

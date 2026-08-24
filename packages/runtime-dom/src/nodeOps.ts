@@ -15,6 +15,9 @@ const nodeOps: Omit<RendererOptions<Node, Element>, "patchProp"> = {
 
   parentNode: (node) => node.parentNode as Element | null,
   nextSibling: (node) => node.nextSibling,
+
+  // support for teleport
+  querySelector: (selector) => document.querySelector(selector),
 }
 
 export { nodeOps }

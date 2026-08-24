@@ -5,3 +5,4 @@ export * from "./keepAlive"
  * consistent with official vue3
  */
 export * from "./baseTransition"
+export * from "./teleport"

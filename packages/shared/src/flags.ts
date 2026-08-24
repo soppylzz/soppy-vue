@@ -26,7 +26,7 @@ enum ShapeFlags {
   // special flag
   COMPONENT_SHOULD_KEEP_ALIVE = 1 << 6,
   COMPONENT_KEPT_ALIVE = 1 << 7,
-  // TELEPORT = 1 << 6,
+  TELEPORT = 1 << 8,
   // SUSPENSE = 1 << 7,
 }
 

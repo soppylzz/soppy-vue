@@ -13,6 +13,7 @@ import type {
   Data,
   KeepAliveContext,
   TransitionHooks,
+  TeleportImpl,
 } from "./component"
 import {
   createComponentInstance,
@@ -34,7 +35,7 @@ import {
   queuePostFlushCbs,
 } from "./scheduler"
 import { lis } from "./lis"
-import { LifecycleHooks, MoveTypes } from "./constant"
+import { LifecycleHooks, MoveTypes, TeleportMoveTypes } from "./constant"
 
 /**
  * light: decoupling the render process from DOM specification
@@ -61,6 +62,9 @@ interface RendererOptions<HostNode = RendererNode, HostElement = RendererElement
   // in DOM tree, leafs can be accepted by Element/Node, non-leafs must be Element
   parentNode(node: HostNode): HostElement | null
   nextSibling(node: HostNode): HostNode | null
+
+  // support teleport to find where target is
+  querySelector(selector: string): HostElement | null
 }
 
 /**
@@ -238,6 +242,15 @@ function createBaseRenderer(options: RendererOptions): Renderer {
           processElement(n1, n2, container, anchor, parentComponent)
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
           processComponent(n1, n2, container, anchor, parentComponent)
+        } else if (shapeFlag & ShapeFlags.TELEPORT) {
+          ;(type as typeof TeleportImpl).patch(
+            n1,
+            n2,
+            container,
+            anchor,
+            parentComponent,
+            internals
+          )
         }
         // in DEV mode, issue a warning if not matching
       }
@@ -312,6 +325,17 @@ function createBaseRenderer(options: RendererOptions): Renderer {
       return
     }
 
+    if (shapeFlag & ShapeFlags.TELEPORT) {
+      ;(type as typeof TeleportImpl).move(
+        vnode,
+        container,
+        anchor,
+        internals,
+        TeleportMoveTypes.REORDER /* pass explicitly */
+      )
+      return
+    }
+
     if (shapeFlag & ShapeFlags.COMPONENT) {
       move(vnode.component!.subTree, container, anchor, moveType)
       return
@@ -374,6 +398,10 @@ function createBaseRenderer(options: RendererOptions): Renderer {
       // process the component separately
       unmountComponent(vnode.component!)
     } else {
+      if (shapeFlag & ShapeFlags.TELEPORT) {
+        ;(vnode.type as typeof TeleportImpl).remove(vnode, parentComponent, internals)
+      }
+
       // recursive unmount other vnode here
       type === Fragment && unmountChildren(children as VNode[], parentComponent)
       // all types of vnodes should eventually be deleted

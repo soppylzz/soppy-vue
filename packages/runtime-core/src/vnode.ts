@@ -11,14 +11,16 @@ import {
   ShapeFlags,
 } from "@soppy-vue/shared"
 import { normalizeClass, normalizeStyle } from "./props"
-import {
-  currentRenderingInstance,
-  type TransitionHooks,
-  type Component,
-  type ComponentInternalInstance,
-  type Data,
-  type RawSlots,
+import type {
+  Teleport,
+  TeleportImpl,
+  TransitionHooks,
+  Component,
+  ComponentInternalInstance,
+  Data,
+  RawSlots,
 } from "./component"
+import { currentRenderingInstance, isTeleport } from "./component"
 import type { RendererElement, RendererNode } from "./renderer"
 import { RuntimeFlags } from "./constant"
 import { isProxy } from "@soppy-vue/reactivity"
@@ -33,7 +35,14 @@ const Fragment = Symbol.for("sv-fragment")
 
 export { Text, Fragment, Comment }
 
-type VNodeTypes = string | Component | typeof Text | typeof Fragment | typeof Comment
+type VNodeTypes =
+  | string
+  | Component
+  | typeof Text
+  | typeof Comment
+  | typeof Fragment
+  | typeof Teleport
+  | typeof TeleportImpl // for internal type assertion
 
 declare const VNodeMountSymbol: unique symbol
 declare const VNodeUpdateSymbol: unique symbol
@@ -114,9 +123,18 @@ interface VNode<
 
   // transition impl
   transition: TransitionHooks<HostElement> | null
+
+  // teleport impl
+  target: HostElement | null
+  targetAnchor: HostNode | null
 }
 
 export type { VNode }
+
+/* ==================== create utils ==================== */
+function createTextNode(text: string, patchFlag: number = 0) {
+  return createVNode(Text, null, text, patchFlag)
+}
 
 /* ==================== norm utils ==================== */
 const normalizeKey = ({ key }: VNodeProps): VNode["key"] => (key != null ? key : null)
@@ -144,7 +162,7 @@ function normalizeChildren(vnode: VNode, children: unknown) {
   } else if (isArray(children)) {
     type = ShapeFlags.ARRAY_CHILDREN
   } else if (isObject(children)) {
-    if (shapeFlag & ShapeFlags.ELEMENT) {
+    if (shapeFlag & (ShapeFlags.ELEMENT | ShapeFlags.TELEPORT)) {
       const slot = (children as any).default
       slot && normalizeChildren(vnode, slot())
       return
@@ -156,8 +174,18 @@ function normalizeChildren(vnode: VNode, children: unknown) {
     type = ShapeFlags.SLOTS_CHILDREN
     children = { default: children, _ctx: currentRenderingInstance }
   } else {
+    // fallback normalize
     children = String(children)
-    type = ShapeFlags.TEXT_CHILDREN
+    if (shapeFlag & ShapeFlags.TELEPORT) {
+      /**
+       * light: force teleport children to be array children, details
+       * are mentioned in the teleport implementation
+       */
+      type = ShapeFlags.ARRAY_CHILDREN
+      children = [createTextNode(children as string)]
+    } else {
+      type = ShapeFlags.TEXT_CHILDREN
+    }
   }
 
   vnode.children = children as VNodeNormalizedChildren
@@ -245,6 +273,9 @@ function cloneVNode<N, E>(
     patchFlag: newPatchFlag,
 
     transition: vnode.transition,
+
+    target: vnode.target,
+    targetAnchor: vnode.targetAnchor,
   }
   return cloned
 }
@@ -284,6 +315,9 @@ function createBaseVNode(
     patchFlag,
 
     transition: null,
+
+    target: null,
+    targetAnchor: null,
   } as VNode
 
   if (needFullChildrenNormalization) {
@@ -329,12 +363,14 @@ function createVNode(
   // resolve shapeFlag
   const shapeFlag = isString(type)
     ? ShapeFlags.ELEMENT
-    : isObject(type)
-      ? ShapeFlags.STATEFUL_COMPONENT
-      : isFunction(type)
-        ? ShapeFlags.FUNCTIONAL_COMPONENT
-        : // light: for special vnode types (e.g. Comment, Text, Fragment), shapeFlag = 0
-          0
+    : isTeleport(type)
+      ? ShapeFlags.TELEPORT
+      : isObject(type)
+        ? ShapeFlags.STATEFUL_COMPONENT
+        : isFunction(type)
+          ? ShapeFlags.FUNCTIONAL_COMPONENT
+          : // light: for special vnode types (e.g. Comment, Text, Fragment), shapeFlag = 0
+            0
 
   return createBaseVNode(type, props, children, shapeFlag, patchFlag, true)
 }

@@ -50,6 +50,8 @@ export {
   getTransitionRawChildren,
   BaseTransition,
   BaseTransitionPropsValidators,
+  // Teleport
+  Teleport,
 } from "./component"
 export { createVNode, cloneVNode, isVNode, Fragment, Text, Comment } from "./vnode"
 
@@ -95,6 +97,8 @@ export type {
   TransitionHooks,
   TransitionState,
   BaseTransitionProps,
+  // Teleport
+  TeleportProps,
 } from "./component"
 
 export type {
