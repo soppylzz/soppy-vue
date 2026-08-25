@@ -12,7 +12,7 @@ function patchClass(el: Element, value: string) {
     value = (value ? [value, ...transitionClasses] : [...transitionClasses]).join(" ")
   }
 
-  if (value === null) {
+  if (value == null) {
     el.removeAttribute("class")
   } else {
     el.className = value

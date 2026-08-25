@@ -143,10 +143,28 @@ const normalizeKey = ({ key }: VNodeProps): VNode["key"] => (key != null ? key :
  * mainly used for render, function as follows:
  * - ensure child is vnodes
  * - auto-wrap children array with Fragment
+ * fix: optimize normalizeVNode processing logic
  */
 function normalizeVNode(child: VNodeChild): VNode {
-  if (isArray(child)) return createVNode(Fragment, null, child.slice())
+  // `null | boolean` is handled as a comment
+  if (child == null || typeof child === "boolean") return createVNode(Comment)
+
+  if (isArray(child)) {
+    return createVNode(
+      Fragment,
+      null,
+      // origin comment: avoid reference pollution when reusing vnode (#3666)
+      child.slice()
+    )
+  }
+
+  /**
+   * light: null is already filtered out above, so only objects
+   * reach here. official vue use `typeof` check at the point
+   */
   if (isObject(child)) return cloneIfMounted(child)
+
+  // process `string | number` here
   return createVNode(Text, null, String(child))
 }
 
@@ -288,6 +306,7 @@ function cloneVNode<N, E>(
  * we'll ignore this impl
  */
 function cloneIfMounted(child: VNode): VNode {
+  // note: vnode.memo not impl yet
   return child.el === null && child.patchFlag !== PatchFlags.HOISTED ? child : cloneVNode(child)
 }
 

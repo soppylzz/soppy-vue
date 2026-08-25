@@ -495,19 +495,20 @@ function createBaseRenderer(options: RendererOptions): Renderer {
         if (key !== "value" && !isReservedProp(key)) {
           hostPatchProp(el, key, null, props[key])
         }
-        /**
-         * --- why we patch DOM value at the end? ---
-         * because value depends on other attrs (e.g. min/max) being set first.
-         * @example
-         * <template>
-         *   <input type="range" :min="0" :max="100" :value="50" />
-         * </template>
-         */
-        if ("value" in props) {
-          hostPatchProp(el, "value", null, props.value)
-        }
-        invokeVNodeHook("onVNodeBeforeMount", vnode)
       }
+      // fix: wrong end process
+      /**
+       * --- why we patch DOM value at the end? ---
+       * because value depends on other attrs (e.g. min/max) being set first.
+       * @example
+       * <template>
+       *   <input type="range" :min="0" :max="100" :value="50" />
+       * </template>
+       */
+      if ("value" in props) {
+        hostPatchProp(el, "value", null, props.value)
+      }
+      invokeVNodeHook("onVNodeBeforeMount", vnode)
     }
 
     const doTransition = needTransition(transition)

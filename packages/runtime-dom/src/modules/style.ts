@@ -42,7 +42,8 @@ function patchStyle(el: Element, prev: Style, next: Style) {
       // process: any => object
       if (prev && !isPrevString) {
         for (const key in prev) {
-          if (next[key] === null) {
+          // fix: loose null check
+          if (next[key] == null) {
             setStyle(style, key, "")
           }
         }

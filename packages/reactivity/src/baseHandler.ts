@@ -19,7 +19,8 @@ const arrayInstrumentations = (() => {
       for (let i = 0; i < l; i++) {
         track(targetArr, `${i}`)
       }
-      return targetArr[fn](...args)
+      // fix: if that didn't work, run it again using raw values.
+      return targetArr[fn](...args.map(toRaw))
     }
   })
 
@@ -28,7 +29,7 @@ const arrayInstrumentations = (() => {
     fnTrackMap[fn] = function (this: unknown[], ...args: unknown[]) {
       const targetArr = toRaw(this) as any
       track(targetArr, "length")
-      return targetArr[fn](...args)
+      return targetArr[fn](...args.map(toRaw))
     }
   })
   return fnTrackMap

@@ -62,7 +62,7 @@ const onMounted = createHook(LifecycleHooks.MOUNTED)
 const onBeforeUpdate = createHook(LifecycleHooks.BEFORE_UPDATE)
 const onUpdated = createHook(LifecycleHooks.UPDATED)
 const onBeforeUnmount = createHook(LifecycleHooks.BEFORE_UNMOUNT)
-const onUnmounted = createHook(LifecycleHooks.BEFORE_UNMOUNT)
+const onUnmounted = createHook(LifecycleHooks.UNMOUNTED)
 
 // debug hooks: the debug APIs we have selectively implemented
 type DebuggerHook = (e: DebuggerEvent) => void

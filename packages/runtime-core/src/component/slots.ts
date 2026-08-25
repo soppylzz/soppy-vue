@@ -109,7 +109,8 @@ const normalizeSlot = (
 
 const normalizeObjectSlots = (rawSlots: RawSlots, slots: InternalSlots) => {
   const ctx = rawSlots._ctx
-  for (const key in ctx) {
+  // fix: should iterate rawSlots here
+  for (const key in rawSlots) {
     if (isInternalKey(key)) continue
     const rawSlot = rawSlots[key]
 

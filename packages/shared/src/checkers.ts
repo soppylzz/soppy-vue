@@ -8,11 +8,12 @@ const isReservedProp = makeChecker([
   "ref", // for DOM ref
   // reserved for vnode debugging
   "onVNodeBeforeMount",
-  "onVnodeMounted",
-  "onVnodeBeforeUpdate",
-  "onVnodeUpdated",
-  "onVnodeBeforeUnmount",
-  "onVnodeUnmounted",
+  // fix: typo of vnode hooks
+  "onVNodeMounted",
+  "onVNodeBeforeUpdate",
+  "onVNodeUpdated",
+  "onVNodeBeforeUnmount",
+  "onVNodeUnmounted",
 ])
 
 export { makeChecker, isReservedProp }

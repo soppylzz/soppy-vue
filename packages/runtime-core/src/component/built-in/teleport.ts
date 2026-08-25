@@ -48,7 +48,7 @@ const moveTeleport = (
     options: { insert },
     move,
   } = internals
-  const { el, anchor, shapeFlag, children, props } = vnode
+  const { el, anchor, shapeFlag, children } = vnode
 
   if (moveType & TeleportMoveTypes.TARGET_CHANGE) {
     /**

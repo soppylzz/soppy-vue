@@ -289,9 +289,10 @@ function registerKeepAliveHook(
    * flat array instead of walking the subtree.
    */
   if (target) {
-    const current: ComponentInternalInstance | null = target.parent
+    let current: ComponentInternalInstance | null = target.parent
     while (current?.parent) {
       if (isKeepAlive(current.parent.vnode)) {
+        // inject to keep alive root
         const keepAliveRoot = current
 
         // light: use a stack to execute hooks, ensuring FILO
@@ -303,6 +304,8 @@ function registerKeepAliveHook(
           deleteIdx >= 0 && hooks.splice(deleteIdx, 1)
         }, target)
       }
+      // fix: add recurse
+      current = current.parent
     }
   }
 }

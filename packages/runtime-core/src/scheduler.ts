@@ -109,7 +109,8 @@ function queueJob(job: SchedulerJob) {
 }
 
 function flushQueue() {
-  if (!isFlushing && isFlushPending) {
+  // fix: prevent re-execution, or flush has already been scheduled task
+  if (!isFlushing && !isFlushPending) {
     isFlushPending = true
     currentFlushPromise = resolvePromise.then(flushJobs)
   }
