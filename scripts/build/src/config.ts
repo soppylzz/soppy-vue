@@ -61,6 +61,11 @@ function resolveBuildContext(pkgInfo: PackageInfo, buildArgs: BuildArgs): BuildC
     return {
       input,
       external: generateExternal(isIIFE),
+      transform: {
+        define: {
+          __DEV__: JSON.stringify(!isProd),
+        },
+      },
     }
   }
 
