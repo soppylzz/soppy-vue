@@ -24,6 +24,7 @@ import { currentRenderingInstance, isTeleport } from "./component"
 import type { RendererElement, RendererNode } from "./renderer"
 import { RuntimeFlags } from "./constant"
 import { isProxy } from "@soppy-vue/reactivity"
+import { currentBlock, isBlockTrackActive } from "./block"
 
 /**
  * official vue accept many types, even `VNode`. this happens in cases like
@@ -104,6 +105,12 @@ interface VNode<
   type: VNodeTypes
   // ensure `props.class` can be accepted
   props: (VNodeProps & ExtraProps) | null
+  /**
+   * shapeFlag should be classified as a primitive type; the main
+   * runtime optimization for it is whether to normalize `vnode`
+   * **IN** rendering
+   */
+  shapeFlag: number
   children: VNodeNormalizedChildren
   component: ComponentInternalInstance | null
 
@@ -118,8 +125,8 @@ interface VNode<
   anchor: HostNode | null
 
   // optimize runtime
-  shapeFlag: number
   patchFlag: number
+  dynamicChildren: VNode[] | null
 
   // transition impl
   transition: TransitionHooks<HostElement> | null
@@ -185,10 +192,12 @@ function normalizeChildren(vnode: VNode, children: unknown) {
       slot && normalizeChildren(vnode, slot())
       return
     } else {
+      // note: build `rawSlots` in optional comp
       type = ShapeFlags.SLOTS_CHILDREN
       ;(children as RawSlots)._ctx = currentRenderingInstance
     }
   } else if (isFunction(children)) {
+    // note: build `rawSlots` in functional comp
     type = ShapeFlags.SLOTS_CHILDREN
     children = { default: children, _ctx: currentRenderingInstance }
   } else {
@@ -279,6 +288,7 @@ function cloneVNode<N, E>(
     [RuntimeFlags.IS_VNODE]: true,
     type: vnode.type,
     props: mergedProps,
+    shapeFlag: vnode.shapeFlag,
     // official vue will deepCloneVNode children here in DEV mode
     children: children,
     component: vnode.component,
@@ -287,8 +297,8 @@ function cloneVNode<N, E>(
     anchor: vnode.anchor,
     key: mergedProps && normalizeKey(mergedProps),
 
-    shapeFlag: vnode.shapeFlag,
     patchFlag: newPatchFlag,
+    dynamicChildren: vnode.dynamicChildren,
 
     transition: vnode.transition,
 
@@ -317,12 +327,17 @@ function createBaseVNode(
   children: unknown = null,
   shapeFlag: number,
   patchFlag: number,
-  needFullChildrenNormalization = false
+  needFullChildrenNormalization = false,
+  /**
+   * light: avoid a block node from tracking itself
+   */
+  isBlockNode = false
 ): VNode {
   const vnode = {
     [RuntimeFlags.IS_VNODE]: true,
     type,
     props,
+    shapeFlag,
     children,
     component: null,
 
@@ -330,8 +345,8 @@ function createBaseVNode(
     anchor: null,
     key: props && normalizeKey(props),
 
-    shapeFlag,
     patchFlag,
+    dynamicChildren: null,
 
     transition: null,
 
@@ -349,6 +364,22 @@ function createBaseVNode(
     normalizeChildren(vnode, children)
   }
 
+  // origin comment: track vnode for block tree
+  if (
+    isBlockTrackActive() &&
+    currentBlock &&
+    !isBlockNode &&
+    /**
+     * light:
+     * - `patchFlag > 0` indicates vnode need patch in rendering
+     * - `ShapeFlags.COMPONENT` needs to persist the instance on,
+     *   to the next vnode, so that it can be unmounted
+     */
+    (vnode.patchFlag > 0 || shapeFlag & ShapeFlags.COMPONENT)
+  ) {
+    currentBlock.push(vnode)
+  }
+
   return vnode
 }
 
@@ -357,11 +388,13 @@ function createVNode(
   props: (Data & VNodeProps) | null = null,
   children: unknown = null,
   // provided when call, not auto-computed
-  patchFlag: number = 0
+  patchFlag: number = 0,
+  isBlockNode = false
 ) {
   // light: valid vnode guard, using COMMENT as a fallback type
   type = type || Comment
 
+  // origin comment: class & style normalization.
   if (props) {
     props = guardReactiveProps(props)!
 
@@ -379,7 +412,7 @@ function createVNode(
     }
   }
 
-  // resolve shapeFlag
+  // resolve shapeFlag, can be optimized at compiled time
   const shapeFlag = isString(type)
     ? ShapeFlags.ELEMENT
     : isTeleport(type)
@@ -391,7 +424,19 @@ function createVNode(
           : // light: for special vnode types (e.g. Comment, Text, Fragment), shapeFlag = 0
             0
 
-  return createBaseVNode(type, props, children, shapeFlag, patchFlag, true)
+  return createBaseVNode(
+    type,
+    props,
+    children,
+    shapeFlag,
+    patchFlag,
+    /**
+     * needFullChildrenNormalization, we don't
+     * trust user-created vnode
+     */
+    true,
+    isBlockNode
+  )
 }
 
 /* ==================== checks utils ==================== */
@@ -420,4 +465,15 @@ function invokeVNodeHook(hook: keyof VNodeHookRegistry, vnode: VNode, prevVNode?
   }
 }
 
-export { normalizeVNode, cloneVNode, createVNode, isVNode, isSameVNodeType, invokeVNodeHook }
+export {
+  normalizeVNode,
+  cloneVNode,
+  // optimize for `patchChildren`
+  cloneIfMounted,
+  createVNode,
+  // as origin `createElementVNode`
+  createBaseVNode,
+  isVNode,
+  isSameVNodeType,
+  invokeVNodeHook,
+}

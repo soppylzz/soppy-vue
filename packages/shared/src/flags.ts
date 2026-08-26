@@ -27,31 +27,40 @@ enum ShapeFlags {
   COMPONENT_SHOULD_KEEP_ALIVE = 1 << 6,
   COMPONENT_KEPT_ALIVE = 1 << 7,
   TELEPORT = 1 << 8,
-  // SUSPENSE = 1 << 7,
 }
 
 enum PatchFlags {
+  /* =============== special flags =============== */
   /**
-   * disable compiler optimization, does full recursive
-   * diff, produced by Transition
+   * disable compiler optimization and force full
+   * recursive diff.
    */
   BAIL = -2,
   /**
-   * for full static node, vnode hoisted outside render()
+   * fully static node, vnode hoisted outside render().
+   * skipped entirely during diff.
    */
   HOISTED = -1,
+
+  /* =============== element flags =============== */
   TEXT = 1,
   CLASS = 1 << 1,
   STYLE = 1 << 2,
-  FULL_PROPS = 1 << 3,
-  KEYED_FRAGMENT = 1 << 4,
-  UNKEYED_FRAGMENT = 1 << 5,
-  // PROPS = 1 << 3,
-  // DYNAMIC_SLOTS = 1 << 10,
-  // STABLE_FRAGMENT = 1 << 6,
-  // DEV_ROOT_FRAGMENT = 1 << 11,
-  // NEED_HYDRATION = 1 << 5,
+
+  /* =============== children flags =============== */
+  KEYED_FRAGMENT = 1 << 3,
+  UNKEYED_FRAGMENT = 1 << 4,
+  STABLE_FRAGMENT = 1 << 5,
+
+  /* =============== component flags =============== */
+  FULL_PROPS = 1 << 6,
+  // PROPS = 1 << 7,
+  // DYNAMIC_SLOTS = 1 << 8,
+
+  /* =============== reserved flags =============== */
   // NEED_PATCH = 1 << 9,
+  // NEED_HYDRATION = 1 << 10,
+  // DEV_ROOT_FRAGMENT = 1 << 11,
 }
 
 export { ShapeFlags, PatchFlags }

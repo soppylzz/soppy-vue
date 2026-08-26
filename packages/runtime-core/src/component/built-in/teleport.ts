@@ -7,7 +7,11 @@ import type {
   VNodeProps,
 } from "@soppy-vue/runtime-dom"
 import { MoveTypes, RuntimeFlags, TeleportMoveTypes } from "../../constant"
-import type { RendererInternals, RendererOptions } from "../../renderer"
+import {
+  traverseStaticChildren,
+  type RendererInternals,
+  type RendererOptions,
+} from "../../renderer"
 import { isString, ShapeFlags } from "@soppy-vue/shared"
 
 interface TeleportProps {
@@ -101,15 +105,17 @@ const TeleportImpl = {
     container: RendererElement,
     anchor: RendererNode | null,
     parentComponent: ComponentInternalInstance | null,
+    optimized: boolean,
     internals: RendererInternals
   ) {
     const {
       mountChildren,
       patchChildren,
+      patchBlockChildren,
       options: { insert, createText, createComment, querySelector /* specific api */ },
     } = internals
 
-    const { shapeFlag, children } = n2
+    const { shapeFlag, children, dynamicChildren } = n2
 
     // patch or mount
     if (n1 == null) {
@@ -136,7 +142,13 @@ const TeleportImpl = {
          * both in compiler and vnode children normalization
          */
         if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-          mountChildren(children as VNodeArrayChildren, container, anchor, parentComponent)
+          mountChildren(
+            children as VNodeArrayChildren,
+            container,
+            anchor,
+            parentComponent,
+            optimized
+          )
         }
       }
 
@@ -146,7 +158,12 @@ const TeleportImpl = {
       const target = (n2.target = n1.target)!
       const targetAnchor = (n2.targetAnchor = n1.targetAnchor)!
 
-      patchChildren(n1, n2, target, targetAnchor, parentComponent)
+      if (dynamicChildren) {
+        patchBlockChildren(n1.dynamicChildren!, dynamicChildren, target, parentComponent)
+        traverseStaticChildren(n1, n2, false /* shallow */)
+      } else if (!optimized) {
+        patchChildren(n1, n2, target, targetAnchor, parentComponent, false)
+      }
 
       if (n2.props?.to !== n1.props?.to) {
         const nextTarget = (n2.target = resolveTarget(n2.props, querySelector))
@@ -172,7 +189,7 @@ const TeleportImpl = {
     if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
       for (let i = 0; i < (children as VNode[]).length; i++) {
         const child = (children as VNode[])[i]
-        unmount(child, parentComponent)
+        unmount(child, parentComponent, false)
       }
     }
   },

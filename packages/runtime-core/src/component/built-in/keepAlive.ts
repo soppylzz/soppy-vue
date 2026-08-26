@@ -18,7 +18,7 @@ import {
 } from "@soppy-vue/runtime-dom"
 import type { ComponentRenderContext } from "../publicInstance"
 import { LifecycleHooks, MoveTypes, RuntimeFlags } from "../../constant"
-import { type RendererInternals } from "../../renderer"
+import type { RendererInternals } from "../../renderer"
 import { isArray, isRegExp, isString, ShapeFlags, syncRunFns } from "@soppy-vue/shared"
 import { getComponentName } from "../component"
 import type { VNodeKey } from "../../vnode"
@@ -120,7 +120,7 @@ const KeepAliveImpl: ComponentOptions = {
     function unmount(vnode: VNode) {
       resetShapeFlag(vnode)
       // in official vue3, even here, `doRemove` is set to true?
-      _unmount(vnode, instance)
+      _unmount(vnode, instance, false)
     }
 
     let pendingCacheKey: CacheKey | null = null

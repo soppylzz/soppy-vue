@@ -53,9 +53,31 @@ export {
   // Teleport
   Teleport,
 } from "./component"
-export { createVNode, cloneVNode, isVNode, Fragment, Text, Comment } from "./vnode"
+export {
+  // expose for compiled sfc
+  createBaseVNode,
+  createVNode,
+  cloneVNode,
+  isVNode,
+  Fragment,
+  Text,
+  Comment,
+} from "./vnode"
+export {
+  toggleBlockTrack,
+  openBlock,
+  // expose for compiled sfc
+  createBaseBlock,
+  createBlock,
+} from "./block"
 
 export { createRenderer } from "./renderer"
+
+/**
+ * self-design: there is no need to provide the `h()`,
+ * just use `createVNode()` directly.
+ * // export { h } from "./h"
+ */
 
 /* ==================== types ==================== */
 export type {

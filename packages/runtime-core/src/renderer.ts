@@ -1,13 +1,21 @@
 import {
   EMPTY_ARR,
   EMPTY_OBJ,
+  isArray,
   isReservedProp,
   PatchFlags,
   ShapeFlags,
   syncRunFns,
 } from "@soppy-vue/shared"
 import type { VNode, VNodeArrayChildren, VNodeKey } from "./vnode"
-import { Fragment, invokeVNodeHook, isSameVNodeType, normalizeVNode, Text } from "./vnode"
+import {
+  cloneIfMounted,
+  Fragment,
+  invokeVNodeHook,
+  isSameVNodeType,
+  normalizeVNode,
+  Text,
+} from "./vnode"
 import type {
   ComponentInternalInstance,
   Data,
@@ -91,9 +99,18 @@ interface RendererInternals<HostNode = RendererNode, HostElement = RendererEleme
     n2: VNode,
     container: RendererElement,
     anchor?: RendererNode | null,
-    parentComponent?: ComponentInternalInstance | null
+    parentComponent?: ComponentInternalInstance | null,
+    /**
+     * light: set to optional, automatically inferred
+     * internally via `n2.dynamicChildren`
+     */
+    optimized?: boolean
   ) => void
-  unmount: (vnode: VNode, parentComponent: ComponentInternalInstance | null) => void
+  unmount: (
+    vnode: VNode,
+    parentComponent: ComponentInternalInstance | null,
+    optimized: boolean
+  ) => void
   remove: (vnode: VNode) => void
   move: (
     vnode: VNode,
@@ -112,6 +129,7 @@ interface RendererInternals<HostNode = RendererNode, HostElement = RendererEleme
     container: RendererElement,
     anchor: RendererNode | null,
     parentComponent: ComponentInternalInstance | null,
+    optimized: boolean,
     start?: number
   ) => void
   patchChildren: (
@@ -119,9 +137,17 @@ interface RendererInternals<HostNode = RendererNode, HostElement = RendererEleme
     n2: VNode,
     container: RendererElement,
     anchor: RendererNode | null,
-    parentComponent: ComponentInternalInstance | null
+    parentComponent: ComponentInternalInstance | null,
+    optimized: boolean
   ) => void
   next: (vnode: VNode) => RendererNode | null
+  // block render support
+  patchBlockChildren: (
+    fc1: VNode[],
+    fc2: VNode[],
+    fallbackContainer: RendererElement,
+    parentComponent: ComponentInternalInstance | null
+  ) => void
   options: RendererOptions<HostNode, HostElement>
 }
 
@@ -139,6 +165,31 @@ function needTransition(transition: TransitionHooks | null) {
    * omit handling persisted, as there is no place in our impl where `persisted` is consumed
    */
   return !!transition
+}
+
+function traverseStaticChildren(n1: VNode, n2: VNode, deep: boolean) {
+  const c1 = n1.children
+  const c2 = n2.children
+
+  if (isArray(c1) && isArray(c2)) {
+    for (let i = 0; i < c1.length; i++) {
+      const oldVNode = c1[i] as VNode
+      let newVNode = c2[i] as VNode
+
+      if (newVNode.shapeFlag & ShapeFlags.ELEMENT && !newVNode.dynamicChildren) {
+        if (newVNode.patchFlag <= 0) {
+          newVNode = c2[i] = cloneIfMounted(c2[i] as VNode)
+          newVNode.el = oldVNode.el
+        }
+        // recursive traversal
+        deep && traverseStaticChildren(oldVNode, newVNode, true)
+      }
+
+      if (newVNode.type === Text) {
+        newVNode.el = oldVNode.el
+      }
+    }
+  }
 }
 
 /* ==================== render creator ==================== */
@@ -197,7 +248,8 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     n2,
     container,
     anchor = null,
-    parentComponent = null
+    parentComponent = null,
+    optimized = !!n2.dynamicChildren
   ) => {
     // vnode remain unchanged, skip
     if (n1 === n2) return
@@ -210,11 +262,16 @@ function createBaseRenderer(options: RendererOptions): Renderer {
        * to land in the same spot
        */
       anchor = getNextHostNode(n1)
-      unmount(n1, parentComponent)
+      unmount(n1, parentComponent, true)
       n1 = null
     }
 
-    const { type, shapeFlag } = n2
+    const { type, shapeFlag, patchFlag } = n2
+
+    if (patchFlag === PatchFlags.BAIL) {
+      optimized = false
+      n2.dynamicChildren = null
+    }
     /**
      * synchronize the changes to VNodeTypes with case-statement here,
      * to enable the rendering of certain special vnode, like:
@@ -234,12 +291,12 @@ function createBaseRenderer(options: RendererOptions): Renderer {
         break
       }
       case Fragment: {
-        processFragment(n1, n2, container, anchor, parentComponent)
+        processFragment(n1, n2, container, anchor, parentComponent, optimized)
         break
       }
       default: {
         if (shapeFlag & ShapeFlags.ELEMENT) {
-          processElement(n1, n2, container, anchor, parentComponent)
+          processElement(n1, n2, container, anchor, parentComponent, optimized)
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
           processComponent(n1, n2, container, anchor, parentComponent)
         } else if (shapeFlag & ShapeFlags.TELEPORT) {
@@ -249,6 +306,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
             container,
             anchor,
             parentComponent,
+            optimized,
             internals
           )
         }
@@ -379,8 +437,8 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     }
   }
 
-  const unmount: RendererInternals["unmount"] = (vnode, parentComponent) => {
-    const { type, shapeFlag, children } = vnode
+  const unmount: RendererInternals["unmount"] = (vnode, parentComponent, optimized) => {
+    const { type, shapeFlag, children, dynamicChildren, patchFlag } = vnode
 
     if (shapeFlag & ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE) {
       // light: the specific unmount logic is in `ctx.deactivate` [KEEP_ALIVE].
@@ -402,8 +460,24 @@ function createBaseRenderer(options: RendererOptions): Renderer {
         ;(vnode.type as typeof TeleportImpl).remove(vnode, parentComponent, internals)
       }
 
-      // recursive unmount other vnode here
-      type === Fragment && unmountChildren(children as VNode[], parentComponent)
+      // add fragment unmount optimization
+      if (
+        dynamicChildren &&
+        (type !== Fragment || (patchFlag && patchFlag & PatchFlags.STABLE_FRAGMENT))
+      ) {
+        // unmount stable fragment
+        unmountChildren(dynamicChildren, parentComponent, true)
+      }
+
+      if (
+        (type === Fragment &&
+          patchFlag & (PatchFlags.KEYED_FRAGMENT | PatchFlags.UNKEYED_FRAGMENT)) ||
+        (!optimized && shapeFlag & ShapeFlags.ARRAY_CHILDREN)
+      ) {
+        // unmount keyed/unkeyed fragment
+        unmountChildren(children as VNode[], parentComponent, false)
+      }
+
       // all types of vnodes should eventually be deleted
       remove(vnode)
     }
@@ -448,11 +522,14 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     n2: VNode,
     container: RendererElement,
     anchor: RendererNode | null,
-    parentComponent: ComponentInternalInstance | null
+    parentComponent: ComponentInternalInstance | null,
+    optimized: boolean
   ) => {
     // light: save startAnchor to `vnode.el`, save endAnchor to `vnode.anchor` to fix the range
     const fragmentStartAnchor = (n2.el = n1 ? n1.el : hostCreateText(""))!
     const fragmentEndAnchor = (n2.anchor = n1 ? n1.anchor : hostCreateText(""))!
+
+    const { patchFlag, dynamicChildren } = n2
 
     if (n1 == null) {
       hostInsert(fragmentStartAnchor, container, anchor)
@@ -462,10 +539,36 @@ function createBaseRenderer(options: RendererOptions): Renderer {
         n2.children as VNodeArrayChildren,
         container,
         fragmentEndAnchor,
-        parentComponent
+        parentComponent,
+        optimized
       )
     } else {
-      patchChildren(n1, n2, container, fragmentEndAnchor, parentComponent)
+      if (
+        patchFlag > 0 &&
+        dynamicChildren &&
+        n1.dynamicChildren &&
+        patchFlag & PatchFlags.STABLE_FRAGMENT
+      ) {
+        /**
+         * light: since `dynamicChildren` are collected at creation time and the fragment's
+         * stable structure is guaranteed at compile time (no KEYED/UNKEYED), we can
+         * safely skip full children diff and patch only dynamic vnodes by index.
+         */
+        patchBlockChildren(n1.dynamicChildren, dynamicChildren, container, parentComponent)
+
+        /**
+         * --- why does `traverseStaticChildren` always come after `patchBlockChildren`? ---
+         * [ANSWER]
+         */
+        if (__DEV__) {
+          traverseStaticChildren(n1, n2, true /* deep */)
+        } else if (n2.key != null || (parentComponent && n2 === parentComponent.subTree)) {
+          traverseStaticChildren(n1, n2, false /* shallow */)
+        }
+      } else {
+        // process KEYED / UNKEYED, or manual fragment here, via full diff algorithm
+        patchChildren(n1, n2, container, fragmentEndAnchor, parentComponent, optimized)
+      }
     }
   }
 
@@ -474,7 +577,9 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     vnode: VNode,
     container: RendererElement,
     anchor: RendererNode | null,
-    parentComponent: ComponentInternalInstance | null
+    parentComponent: ComponentInternalInstance | null,
+    // for array children process
+    optimized: boolean
   ) => {
     const { props, shapeFlag, transition } = vnode
     const el: RendererElement = (vnode.el = hostCreateElement(vnode.type as string))
@@ -487,7 +592,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
       hostSetElementText(el, vnode.children as string)
     } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-      mountChildren(vnode.children as VNodeArrayChildren, el, anchor, parentComponent)
+      mountChildren(vnode.children as VNodeArrayChildren, el, anchor, parentComponent, optimized)
     }
 
     if (props) {
@@ -524,11 +629,12 @@ function createBaseRenderer(options: RendererOptions): Renderer {
   const patchElement = (
     n1: VNode,
     n2: VNode,
-    parentComponent: ComponentInternalInstance | null
+    parentComponent: ComponentInternalInstance | null,
+    optimized: boolean
   ) => {
     // as a vnode awaiting rendering, `n2.el` is not bound to an actual DOM element. reuse `n1.el` here
     const el = (n2.el = n1.el!)
-    const { patchFlag } = n2
+    const { patchFlag, dynamicChildren } = n2
 
     const oldProps = n1.props || EMPTY_OBJ
     const newProps = n2.props || EMPTY_OBJ
@@ -538,7 +644,12 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     parentComponent && toggleRecurse(parentComponent, true)
 
     // 1. patch children
-    patchChildren(n1, n2, el, null, parentComponent)
+    if (dynamicChildren) {
+      patchBlockChildren(n1.dynamicChildren!, dynamicChildren, el, parentComponent)
+      __DEV__ && traverseStaticChildren(n1, n2, true /* deep */)
+    } else if (!optimized) {
+      patchChildren(n1, n2, el, null, parentComponent, false)
+    }
 
     // 2. patch self-props
     if (patchFlag > 0) {
@@ -555,9 +666,10 @@ function createBaseRenderer(options: RendererOptions): Renderer {
         if (patchFlag & PatchFlags.STYLE) {
           hostPatchProp(el, "style", oldProps.style, newProps.style)
         }
+
         /**
-         * not-impl-yet: update dynamic props by certain `n2.dynamicKeys`.
-         * if (patchFlag & PatchFlags.PROPS) {}
+         * not-impl: handle `patchFlag & PatchFlags.PROPS`, indicates
+         * update dynamic props by certain `n2.dynamicProps`.
          */
       }
 
@@ -568,8 +680,11 @@ function createBaseRenderer(options: RendererOptions): Renderer {
         }
       }
     } else {
-      // 2.0. unmatching fallback
-      patchProps(el, oldProps, newProps)
+      // 3. unmatching fallback
+      if (!optimized && dynamicChildren == null) {
+        // origin comment: unoptimized, full diff
+        patchProps(el, oldProps, newProps)
+      }
     }
 
     queuePostFlushCbs(() => invokeVNodeHook("onVNodeUpdated", n2, n1))
@@ -580,11 +695,12 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     n2: VNode,
     container: RendererElement,
     anchor: RendererNode | null,
-    parentComponent: ComponentInternalInstance | null
+    parentComponent: ComponentInternalInstance | null,
+    optimized: boolean
   ) => {
     n1 == null
-      ? mountElement(n2, container, anchor, parentComponent)
-      : patchElement(n1, n2, parentComponent)
+      ? mountElement(n2, container, anchor, parentComponent, optimized)
+      : patchElement(n1, n2, parentComponent, optimized)
   }
 
   /* ==================== internal methods (component) ==================== */
@@ -607,6 +723,11 @@ function createBaseRenderer(options: RendererOptions): Renderer {
      * in {@link updateComponent} is executed
      */
     instance.next = null
+
+    /**
+     * self-design: skip compile-time optimization
+     * for details; only optimize vnode patch
+     */
     updateProps(instance, next.props, prevProps)
     updateSlots(instance, next.children)
 
@@ -738,7 +859,11 @@ function createBaseRenderer(options: RendererOptions): Renderer {
 
     if (update) {
       update.active = false
-      unmount(subTree, instance)
+      /**
+       * light: `optimized` in unmount is only used for
+       * unmounting fragment, here, pass false
+       */
+      unmount(subTree, instance, false)
     }
     unmounted && queuePostFlushCbs(() => unmounted)
     queuePostFlushCbs(() => (instance.isUnmounted = true))
@@ -785,21 +910,32 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     container,
     anchor,
     parentComponent,
+    optimized,
     start = 0
   ) => {
     for (let i = start; i < children.length; i++) {
-      const child = normalizeVNode(children[i])
-      patch(null, child, container, anchor, parentComponent)
+      /**
+       * light: update origin children during noramlizing
+       * optimized path here:
+       * - skip fragment auto-wrapping and null checks
+       * - `normalizeVNode` relies internally on `cloneIfMounted`
+       *   to achieve reuse
+       */
+      const child = (children[i] = optimized
+        ? cloneIfMounted(children[i] as VNode)
+        : normalizeVNode(children[i]))
+      patch(null, child, container, anchor, parentComponent, optimized)
     }
   }
 
   const unmountChildren = (
     children: VNode[],
     parentComponent: ComponentInternalInstance | null,
+    optimized: boolean,
     start: number = 0
   ) => {
     for (let i = start; i < children.length; i++) {
-      unmount(children[i], parentComponent)
+      unmount(children[i], parentComponent, optimized)
     }
   }
 
@@ -813,7 +949,8 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     n2,
     container,
     anchor,
-    parentComponent
+    parentComponent,
+    optimized
   ) => {
     const c1 = n1 && n1.children
     const c2 = n2 && n2.children
@@ -828,7 +965,8 @@ function createBaseRenderer(options: RendererOptions): Renderer {
         c2 as VNodeArrayChildren,
         container,
         anchor,
-        parentComponent
+        parentComponent,
+        optimized
       )
       return
     }
@@ -839,7 +977,8 @@ function createBaseRenderer(options: RendererOptions): Renderer {
         c2 as VNodeArrayChildren,
         container,
         anchor,
-        parentComponent
+        parentComponent,
+        optimized
       )
       return
     }
@@ -848,7 +987,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
       // 1. any to text
       if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-        unmountChildren(c1 as VNode[], parentComponent)
+        unmountChildren(c1 as VNode[], parentComponent, false)
       }
       if (c2 !== c1) {
         hostSetElementText(container, c2 as string)
@@ -862,7 +1001,8 @@ function createBaseRenderer(options: RendererOptions): Renderer {
             c2 as VNodeArrayChildren,
             container,
             anchor,
-            parentComponent
+            parentComponent,
+            optimized
           )
         } else {
           /**
@@ -873,16 +1013,16 @@ function createBaseRenderer(options: RendererOptions): Renderer {
            * - After excluding `VNode[]` and `string`, the only valid value is `null`
            * - Therefore, there are no new children to mount
            */
-          unmountChildren(c1 as VNode[], parentComponent)
+          unmountChildren(c1 as VNode[], parentComponent, true)
         }
       } else {
         if (prevShapeFlag & ShapeFlags.TEXT_CHILDREN) {
-          // 4. text to non-text
+          // 4. text to array or null, clear text before update
           hostSetElementText(container, "")
         }
         if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
           // 4.1 text to array
-          mountChildren(c2 as VNodeArrayChildren, container, anchor, parentComponent)
+          mountChildren(c2 as VNodeArrayChildren, container, anchor, parentComponent, optimized)
         }
       }
     }
@@ -897,7 +1037,8 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     c2: VNodeArrayChildren,
     container: RendererElement,
     anchor: RendererNode | null,
-    parentComponent: ComponentInternalInstance | null
+    parentComponent: ComponentInternalInstance | null,
+    optimized: boolean
   ) => {
     c1 = c1 || EMPTY_ARR
     c2 = c2 || EMPTY_ARR
@@ -907,13 +1048,13 @@ function createBaseRenderer(options: RendererOptions): Renderer {
 
     const commonLength = Math.min(oldLength, newLength)
     for (let i = 0; i < commonLength; i++) {
-      patch(c1[i], normalizeVNode(c2[i]), container, null, parentComponent)
+      patch(c1[i], normalizeVNode(c2[i]), container, null, parentComponent, optimized)
     }
 
     if (oldLength > newLength) {
-      unmountChildren(c1, parentComponent, commonLength)
+      unmountChildren(c1, parentComponent, false, commonLength)
     } else {
-      mountChildren(c2, container, anchor, parentComponent, commonLength)
+      mountChildren(c2, container, anchor, parentComponent, optimized, commonLength)
     }
   }
 
@@ -925,7 +1066,8 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     c2: VNodeArrayChildren,
     container: RendererElement,
     parentAnchor: RendererNode | null,
-    parentComponent: ComponentInternalInstance | null
+    parentComponent: ComponentInternalInstance | null,
+    optimized: boolean
   ) => {
     /* =============== preprocess =============== */
     // preprocess common prefixes / suffixes to prune the execution flow
@@ -939,17 +1081,17 @@ function createBaseRenderer(options: RendererOptions): Renderer {
       e2 = l2 - 1
 
     for (; s < Math.min(l1, l2); s++) {
-      const child = normalizeVNode(c2[s])
+      const child = (c2[s] = optimized ? cloneIfMounted(c2[s] as VNode) : normalizeVNode(c2[s]))
       if (isSameVNodeType(c1[s], child)) {
-        patch(c1[s], child, container, null, parentComponent)
+        patch(c1[s], child, container, null, parentComponent, optimized)
       } else {
         break
       }
     }
     while (e1 >= s && e2 >= s) {
-      const child = normalizeVNode(c2[e2])
+      const child = (c2[e2] = optimized ? cloneIfMounted(c2[e2] as VNode) : normalizeVNode(c2[e2]))
       if (isSameVNodeType(c1[e1], child)) {
-        patch(c1[e1], child, container, null, parentComponent)
+        patch(c1[e1], child, container, null, parentComponent, optimized)
       } else {
         break
       }
@@ -963,7 +1105,14 @@ function createBaseRenderer(options: RendererOptions): Renderer {
         for (i = s; i <= e2; i++) {
           const nextPos = e2 + 1
           const anchor = nextPos < l2 ? (c2[nextPos] as VNode).el : parentAnchor
-          patch(null, normalizeVNode(c2[i]), container, anchor, parentComponent)
+          patch(
+            null,
+            (c2[i] = optimized ? cloneIfMounted(c2[i] as VNode) : normalizeVNode(c2[i])),
+            container,
+            anchor,
+            parentComponent,
+            optimized
+          )
         }
       }
       return
@@ -973,7 +1122,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     if (s > e2) {
       if (e1 >= s) {
         for (i = s; i <= e1; i++) {
-          unmount(c1[i], parentComponent)
+          unmount(c1[i], parentComponent, true)
         }
       }
       return
@@ -986,7 +1135,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     // generate new VNode to new order map
     const keyToNewIndexMap = new Map<VNodeKey, number>()
     for (i = s2; i <= e2; i++) {
-      const child = normalizeVNode(c2[i])
+      const child = (c2[i] = optimized ? cloneIfMounted(c2[i] as VNode) : normalizeVNode(c2[i]))
       if (child.key != null) {
         keyToNewIndexMap.set(child.key, i)
       }
@@ -1002,7 +1151,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     for (i = s1; i <= e1; i++) {
       const prevChild = c1[i]
       if (patched >= toBePatched) {
-        unmount(prevChild, parentComponent)
+        unmount(prevChild, parentComponent, true)
         continue
       }
       let newIndex
@@ -1018,7 +1167,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
       }
 
       if (newIndex === undefined) {
-        unmount(prevChild, parentComponent)
+        unmount(prevChild, parentComponent, true)
       } else {
         // `i + 1` helps distinguish the initial value of 0
         newIndexToOldIndexMap[newIndex - s2] = i + 1
@@ -1027,7 +1176,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
         } else {
           moved = true
         }
-        patch(prevChild, c2[newIndex] as VNode, container, null, parentComponent)
+        patch(prevChild, c2[newIndex] as VNode, container, null, parentComponent, optimized)
         patched++
       }
     }
@@ -1042,7 +1191,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
       const anchor = nextIndex + 1 < l2 ? (c2[nextIndex + 1] as VNode).el : parentAnchor
 
       if (newIndexToOldIndexMap[i] === 0) {
-        patch(null, nextChild, container, anchor, parentComponent)
+        patch(null, nextChild, container, anchor, parentComponent, optimized)
       } else if (moved) {
         if (j < 0 || i !== sequence[j]) {
           move(nextChild, container, anchor, MoveTypes.REORDER)
@@ -1053,10 +1202,36 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     }
   }
 
+  const patchBlockChildren: RendererInternals["patchBlockChildren"] = (
+    /**
+     * light: `fc1` & `fc2` are flatten dynamic children in
+     * blocked vnode, they are all the same length.
+     */
+    fc1,
+    fc2,
+    fallbackContainer,
+    parentComponent
+  ) => {
+    for (let i = 0; i < fc2.length; i++) {
+      const oldVnode = fc1[i]
+      const newVnode = fc2[i]
+
+      const container =
+        oldVnode.el &&
+        (oldVnode.type === Fragment ||
+          !isSameVNodeType(oldVnode, newVnode) ||
+          oldVnode.shapeFlag & (ShapeFlags.COMPONENT | ShapeFlags.TELEPORT))
+          ? hostParentNode(oldVnode.el)!
+          : fallbackContainer
+
+      patch(oldVnode, newVnode, container, null, parentComponent, true /* optimized */)
+    }
+  }
+
   /* ==================== exposed methods ==================== */
   const render: RootRenderFunction = (vnode, container) => {
     if (vnode == null) {
-      container._vnode && unmount(container._vnode, null)
+      container._vnode && unmount(container._vnode, null, false)
     } else {
       patch(container._vnode || null, vnode, container)
     }
@@ -1079,6 +1254,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     mountChildren,
     patchChildren,
     next: getNextHostNode,
+    patchBlockChildren,
     options,
   }
 
@@ -1091,4 +1267,4 @@ function createRenderer<HostNode = RendererNode, HostElement = RendererElement>(
   return createBaseRenderer(options)
 }
 
-export { createRenderer }
+export { createRenderer, traverseStaticChildren }
