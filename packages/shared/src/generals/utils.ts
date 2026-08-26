@@ -21,6 +21,9 @@ const syncRunFns = (fns: Function[], ...args: any[]) => {
   fns.forEach((fn) => fn(...args))
 }
 
+// handle `+0 === -0` => false, `NaN === NaN` => false
+const hasChanged = (val: any, oldVal: any): boolean => !Object.is(val, oldVal)
+
 /**
  * vue enables `Object.freeze(*)` only in DEV mode to prevent
  * accidental modification to `EMPTY_OBJ`, `EMPTY_ARR`
@@ -28,7 +31,7 @@ const syncRunFns = (fns: Function[], ...args: any[]) => {
 const EMPTY_OBJ: { readonly [p: string]: any } = Object.freeze({})
 const EMPTY_ARR = Object.freeze([])
 
-export { NOOP, extend, hasOwn, getProto, ensureArray, syncRunFns, EMPTY_OBJ, EMPTY_ARR }
+export { NOOP, extend, hasOwn, getProto, ensureArray, syncRunFns, hasChanged, EMPTY_OBJ, EMPTY_ARR }
 
 /* ==================== built-in ==================== */
 const toHandlerKey = <T extends string>(str: T) => {

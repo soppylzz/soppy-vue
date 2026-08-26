@@ -1,4 +1,4 @@
-import type { IfAny } from "@soppy-vue/shared"
+import { hasChanged, type IfAny } from "@soppy-vue/shared"
 import type { Dep } from "./dep"
 import { createDep } from "./dep"
 import { activeEffect, shouldTrack, trackEffect, triggerEffects } from "./effect"
@@ -108,7 +108,7 @@ class RefImpl<T> {
     const useDirect = this[ReactiveFlags.IS_SHALLOW] || isShallow(newValue)
     newValue = useDirect ? newValue : toRaw(newValue)
 
-    if (newValue !== this._rawValue) {
+    if (hasChanged(newValue, this._rawValue)) {
       this._rawValue = newValue
       this._value = useDirect ? newValue : toReactive(newValue)
       // STEP: 2. trigger deps

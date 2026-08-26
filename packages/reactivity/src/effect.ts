@@ -2,7 +2,7 @@ import { extend } from "@soppy-vue/shared"
 import { DirtyLevels } from "./constants"
 import type { Dep } from "./dep"
 
-type EffectFunction = () => any
+type EffectFunction<T = any> = () => T
 type EffectScheduler = (...args: unknown[]) => unknown
 
 export type { EffectFunction }
@@ -37,7 +37,7 @@ function cleanDepEffect(dep: Dep, effect: ReactiveEffect) {
 }
 
 // wrapper of effect function
-class ReactiveEffect {
+class ReactiveEffect<T = any> {
   // represent for effect.run() execute times
   _trackId = 0
   _running = 0
@@ -57,10 +57,16 @@ class ReactiveEffect {
   onTrack?: (event: DebuggerEvent) => void
   onTrigger?: (event: DebuggerEvent) => void
 
+  /**
+   * light: using `effect.onStop` to perform
+   * cleanup for a watch
+   */
+  onStop?: () => void
+
   // support for `extend(effect, {allowRecurse, scheduler})`
   allowRecurse?: boolean
   constructor(
-    public fn: EffectFunction,
+    public fn: EffectFunction<T>,
     public scheduler?: EffectScheduler
   ) {
     /**
@@ -126,6 +132,7 @@ class ReactiveEffect {
     if (this.active) {
       this.#preClean()
       this.#postClean()
+      this.onStop?.()
       this.active = false
     }
   }
@@ -182,7 +189,7 @@ const trackStack: boolean[] = []
  * unlike the scheduling fns defined below, these tracking fns are only used
  * outside of `reactivity`.
  */
-function setTracking(enable: boolean) {
+function toggleTracking(enable: boolean) {
   trackStack.push(shouldTrack)
   shouldTrack = enable
 }
@@ -228,7 +235,7 @@ function trackEffect(
   __DEV__ && effect.onTrack?.(extend({ effect }, debuggerEventExtraInfo!))
 }
 
-export { shouldTrack, effect, trackEffect, setTracking, resetTracking }
+export { shouldTrack, effect, trackEffect, toggleTracking, resetTracking }
 
 /* ==================== trigger effect ==================== */
 const queueEffectSchedulers: EffectScheduler[] = []

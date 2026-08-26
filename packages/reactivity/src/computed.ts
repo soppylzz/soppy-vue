@@ -1,17 +1,42 @@
-import { isFunction } from "@soppy-vue/shared"
+import { isFunction, NOOP } from "@soppy-vue/shared"
 import { ReactiveEffect } from "./effect"
 import type { Dep } from "./dep"
+import type { Ref } from "./ref"
 import { trackRefValue, triggerRefValue } from "./ref"
+import { ReactiveFlags } from "./constants"
+import { toRaw } from "./reactive"
 
-class ComputedRefImpl {
-  _value: any
+type ComputedGetter<T> = (oldVal?: T) => T
+type ComputedSetter<T> = (newVal: T) => void
+
+interface WritableComputedOptions<T> {
+  get: ComputedGetter<T>
+  set: ComputedSetter<T>
+}
+
+interface WritableComputedRef<T> extends Ref<T> {
+  readonly effect: ReactiveEffect<T>
+}
+
+declare const ComputedRefSymbol: unique symbol
+interface ComputedRef<T = any> extends WritableComputedRef<T> {
+  readonly value: T
+  [ComputedRefSymbol]: true
+}
+
+class ComputedRefImpl<T> {
+  /**
+   * light: assign a val when getter is executed; `_value` remains
+   * in place teherafter. use `!` assertion to handle this
+   */
+  _value!: T
   _dep?: Dep
-
-  effect: ReactiveEffect
+  effect: ReactiveEffect<T>;
+  [ReactiveFlags.IS_REF] = true
 
   constructor(
-    getter: any,
-    public setter: any
+    getter: ComputedGetter<T>,
+    public setter: ComputedSetter<T>
   ) {
     /**
      * light: middle layer effect, created by `new ReactiveEffect` instead of `effect` method:
@@ -30,30 +55,38 @@ class ComputedRefImpl {
     )
   }
   get value() {
-    if (this.effect.dirty) {
+    /**
+     * origin comment: the computed ref may get wrapped by
+     * other proxies e.g. readonly() (#3376)
+     */
+    const self = toRaw(this)
+
+    if (self.effect.dirty) {
       // light: collect when access this.value
-      this._value = this.effect.run()
+      self._value = self.effect.run()
     }
     /**
      * STEP: 1. dependencies collection
      * collect deps should be related to execution
      * of `effect`, not to the data content
      */
-    trackRefValue(this)
-    return this._value
+    trackRefValue(self)
+    return self._value
   }
-  set value(newVal) {
+  set value(newVal: T) {
     this.setter(newVal)
   }
 }
 
-function computed(getterOrOptions: any) {
+function computed<T>(getter: ComputedGetter<T>): ComputedRef<T>
+function computed<T>(options: WritableComputedOptions<T>): WritableComputedRef<T>
+function computed(getterOrOptions: any): any {
   const onlyGetter = isFunction(getterOrOptions)
 
   let getter, setter
   if (onlyGetter) {
     getter = getterOrOptions
-    setter = () => {}
+    setter = NOOP
   } else {
     getter = getterOrOptions.get
     setter = getterOrOptions.set
@@ -62,3 +95,4 @@ function computed(getterOrOptions: any) {
 }
 
 export { computed }
+export type { WritableComputedRef, ComputedRef }

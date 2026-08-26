@@ -33,7 +33,7 @@ import {
   updateSlots,
   isKeepAlive,
 } from "./component"
-import { ReactiveEffect, resetTracking, setTracking } from "@soppy-vue/reactivity"
+import { ReactiveEffect, resetTracking, toggleTracking } from "@soppy-vue/reactivity"
 import type { SchedulerJob } from "./scheduler"
 import {
   flushPostFlushCbs,
@@ -731,7 +731,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     updateProps(instance, next.props, prevProps)
     updateSlots(instance, next.children)
 
-    setTracking(false)
+    toggleTracking(false)
     /**
      * vue api cause flush below:
      * - watcher with { flush: "pre" }

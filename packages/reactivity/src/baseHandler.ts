@@ -1,4 +1,4 @@
-import { getProto, hasOwn, isArray, isIntegerKey, isObject } from "@soppy-vue/shared"
+import { getProto, hasChanged, hasOwn, isArray, isIntegerKey, isObject } from "@soppy-vue/shared"
 import { ReactiveFlags } from "./constants"
 import type { Target } from "./reactive"
 import { isShallow, reactive, toRaw } from "./reactive"
@@ -143,7 +143,7 @@ class MutableReactiveHandler implements ProxyHandler<Target> {
 
     const result = Reflect.set(target, key, newVal, receiver)
 
-    if (target === toRaw(receiver) && oldVal !== newVal) {
+    if (target === toRaw(receiver) && hasChanged(newVal, oldVal)) {
       trigger(target, key, newVal, oldVal)
     }
     return result

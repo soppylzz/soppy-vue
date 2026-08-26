@@ -5,8 +5,6 @@ export {
   reactive,
   proxyRefs,
   computed,
-  watch,
-  watchEffect,
   toRef,
   toRefs,
   isRef,
@@ -35,6 +33,8 @@ export {
 } from "./apiLifecycle"
 
 export { provide, inject } from "./apiInject"
+export { watch, watchEffect } from "./apiWatch"
+
 export { nextTick, queuePostFlushCbs } from "./scheduler"
 
 export {
@@ -88,8 +88,19 @@ export type {
   ShallowRef,
   ShallowReactive,
   UnwrapNestedRefs,
-  // not-impl-yet: type infra of `watch`/`computed` API
+  ComputedRef,
+  WritableComputedRef,
 } from "@soppy-vue/reactivity"
+
+export type {
+  WatchHandler,
+  WatchEffect,
+  WatchSource,
+  WatchCallback,
+  OnCleanup,
+  WatchEffectOptions,
+  WatchOptions,
+} from "./apiWatch"
 
 export type { InjectionKey } from "./apiInject"
 

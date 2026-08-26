@@ -1,5 +1,5 @@
 import type { ReactiveEffect } from "@soppy-vue/reactivity"
-import { proxyRefs, resetTracking, setTracking, track } from "@soppy-vue/reactivity"
+import { proxyRefs, resetTracking, toggleTracking, track } from "@soppy-vue/reactivity"
 import type { VNode, VNodeChild } from "../vnode"
 import {
   publicInstanceProxyHandler,
@@ -294,7 +294,7 @@ function setupStatefulComponent(instance: ComponentInternalInstance) {
 
     // light: enable getCurrentInstance, disable track in `setup`
     setCurrentInstance(instance)
-    setTracking(false)
+    toggleTracking(false)
 
     // light: the non-null assertion is safe!
     const setupResult = setup(instance.props, setupContext!)

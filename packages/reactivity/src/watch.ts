@@ -1,8 +1,212 @@
-import { isArray, isFunction, isObject, NOOP } from "@soppy-vue/shared"
+import type { MaybeArray } from "@soppy-vue/shared"
+import { EMPTY_OBJ, hasChanged, isArray, isFunction, isObject, NOOP } from "@soppy-vue/shared"
+import type { Ref } from "./ref"
 import { isRef } from "./ref"
 import type { EffectFunction } from "./effect"
-import { ReactiveEffect } from "./effect"
-import { isReactive } from "./reactive"
+import { ReactiveEffect, resetTracking, toggleTracking } from "./effect"
+import { isReactive, isShallow } from "./reactive"
+import type { ComputedRef } from "./computed"
+
+/* ==================== api types ==================== */
+type OnCleanup = (cleanupFn: () => void) => void
+type WatchEffect = (OnCleanup: OnCleanup) => void
+
+type WatchSource<T = any> = Ref<T> | ComputedRef<T> | (() => T)
+
+type WatchScheduler = { (job: () => void): void }
+/**
+ * note: ignore debugger hooks in `watch`/`computed` impl;
+ * only impl them in `ref`/`reactive`
+ */
+interface BaseWatchOptions {
+  deep?: boolean | number
+  scheduler?: WatchScheduler
+  augmentJob?: (job: (...args: any[]) => void) => void
+}
+
+type WatchCallback<V = any, OV = any> = (val: V, oldVal: OV, onCleanup: OnCleanup) => any
+
+// not-impl-yet
+type WatchHandler = {
+  (): void
+  stop: () => void
+  // not-impl: because our effect does not impl pause, resume
+  // pause: () => void
+  // resume: () => void
+}
+
+// self design
+type WatchTarget<T = any> = MaybeArray<WatchSource<T>> | WatchEffect | object
+
+export type {
+  WatchSource,
+  BaseWatchOptions,
+  WatchEffect,
+  WatchHandler,
+  WatchCallback,
+  OnCleanup,
+  WatchTarget,
+}
+
+/* ==================== base watch ==================== */
+const cleanupMap: WeakMap<ReactiveEffect, (() => void)[]> = new WeakMap()
+
+/**
+ * note: vue@3.5 introduced `onWatcherCleanup` API, it maintains a `activeWatcher`
+ * to find bind owner automatically, out impl does not expose it, so the simplified
+ * code is as follows:
+ */
+function onWatcherCleanup(fn: () => void, owner: ReactiveEffect) {
+  let cleanups = cleanupMap.get(owner)
+  if (!cleanups) {
+    cleanupMap.set(owner, (cleanups = []))
+  }
+  cleanups.push(fn)
+}
+
+function baseWatch(
+  source: WatchTarget,
+  cb?: WatchCallback | null,
+  options: BaseWatchOptions = EMPTY_OBJ
+) {
+  const { deep, scheduler, augmentJob } = options
+
+  const reactiveGetter = (source: object) => {
+    /**
+     * light: move the deep traverse logic to after the getter is built,
+     * ensuring it takes effect on almost all watch source
+     */
+    if (deep) return source
+    if (isShallow(source) || deep === false || deep === 0) return traverse(source, 1)
+    return traverse(source)
+  }
+
+  let getter: EffectFunction
+
+  let isMultiSource = false
+  let forceTrigger = false
+
+  /* =============== build getter =============== */
+  if (isRef(source)) {
+    getter = () => source.value
+    forceTrigger = isShallow(source)
+  } else if (isReactive(source)) {
+    getter = () => reactiveGetter(source)
+    forceTrigger = true
+  } else if (isArray(source)) {
+    isMultiSource = true
+    forceTrigger = source.some((s) => isReactive(s) || isShallow(s))
+    getter = () => {
+      return source.map((s) => {
+        if (isRef(s)) {
+          return s.value
+        } else if (isReactive(s)) {
+          return reactiveGetter(s)
+        } else if (isFunction(s)) {
+          return s()
+        }
+        // not-impl: dev warn here
+      })
+    }
+  } else if (isFunction(source)) {
+    if (cb) {
+      getter = source as EffectFunction
+    } else {
+      // handle watchEffect cb
+      getter = () => {
+        if (cleanup) {
+          toggleTracking(false)
+          try {
+            cleanup()
+          } finally {
+            resetTracking()
+          }
+        }
+        // produce: cleanup for `watchEffect`
+        return source(onCleanup)
+      }
+    }
+  } else {
+    getter = NOOP
+    // not-impl: dev warn here
+  }
+
+  /* =============== unified traverse & build effect =============== */
+  if (cb && deep) {
+    // should skip when traverse watchEffect
+    const baseGetter = getter
+    getter = () => traverse(baseGetter(), deep === true ? Infinity : deep)
+  }
+  const effect = new ReactiveEffect(getter)
+
+  /* =============== build scheduler =============== */
+  const onCleanup: OnCleanup = (fn) => onWatcherCleanup(fn, effect)
+  const cleanup = (effect.onStop = () => {
+    // consume: oncleanup
+    const cleanups = cleanupMap.get(effect)
+    if (cleanups) {
+      for (const cleanup of cleanups) cleanup()
+    }
+    // light: every call of `cb` will re-add cleanupFn into `cleanupMap`
+    cleanupMap.delete(effect)
+  })
+
+  let oldVal: any
+  const job = () => {
+    if (!effect.dirty) return
+
+    if (cb) {
+      // watch(source, cb)
+      const newVal = effect.run()
+      if (
+        deep ||
+        forceTrigger ||
+        (isMultiSource
+          ? (newVal as any[]).some((v, i) => hasChanged(v, oldVal[i]))
+          : hasChanged(newVal, oldVal))
+      ) {
+        // origin comment: cleanup before running cb again
+        cleanup?.()
+
+        // produce: cleanup for `watch`
+        cb(newVal, oldVal, onCleanup)
+        oldVal = newVal
+      }
+    } else {
+      // watchEffect(fn)
+      effect.run()
+    }
+  }
+
+  // light: casting job at initial
+  if (augmentJob) {
+    augmentJob(job)
+  }
+
+  effect.scheduler = scheduler ? () => scheduler(job) : job
+
+  /* =============== initial run =============== */
+  if (cb) {
+    oldVal = effect.run()
+  } else if (scheduler) {
+    scheduler(job.bind(null))
+  } else {
+    effect.run()
+  }
+
+  /* =============== return handler =============== */
+  const watchHandler = (() => {
+    effect.stop()
+    // handle effect scope here, which we ignored
+  }) as WatchHandler
+  // default call as handle stop
+  watchHandler.stop = watchHandler
+
+  // watchHandler.pause = effect.pause.bind(effect)
+  // watchHandler.resume = effect.resume.bind(effect)
+
+  return watchHandler
+}
 
 /**
  * executed in the effect inside watch, collect deps using custom options
@@ -47,80 +251,4 @@ function traverse(value: unknown, depth: number = Infinity, seen?: Map<unknown, 
   return value
 }
 
-type OnCleanup = (cleanupFn: () => void) => void
-
-type WatchCallback<V = any, OV = any> = (val: V, oldVal: OV, onCleanup?: OnCleanup) => any
-
-interface WatchOptions {
-  deep?: boolean | number
-  immediate?: boolean
-}
-
-function doWatch(source: object, cb: WatchCallback | null, options?: WatchOptions) {
-  const { deep = true, immediate = true } = options ?? {}
-
-  let getter: EffectFunction
-
-  const reactiveGetter = (source: object) => {
-    if (deep) {
-      return traverse(source, deep === true ? Infinity : deep)
-    } else {
-      if (deep === false || deep === 0) return traverse(source, 1)
-      return traverse(source)
-    }
-  }
-
-  if (isRef(source)) {
-    getter = () => source.value
-  } else if (isReactive(source)) {
-    getter = () => reactiveGetter(source)
-  } else if (isFunction(source)) {
-    getter = source
-  } else {
-    getter = NOOP
-  }
-
-  let cleanup: (() => void) | null
-  const onCleanup = (fn: () => void) => {
-    cleanup = () => {
-      fn()
-      cleanup = null
-    }
-  }
-
-  let oldValue: any
-  const job = () => {
-    if (cb) {
-      const newValue = effect.run()
-      if (cleanup) {
-        cleanup()
-      }
-      cb(newValue, oldValue, onCleanup)
-      oldValue = newValue
-    } else {
-      effect.run()
-    }
-  }
-
-  const effect = new ReactiveEffect(getter, job)
-
-  if (cb) {
-    if (immediate) {
-      job()
-    } else {
-      oldValue = effect.run()
-    }
-  } else {
-    effect.run()
-  }
-}
-
-function watch(source: object, cb: WatchCallback, options?: WatchOptions) {
-  return doWatch(source, cb, options)
-}
-
-function watchEffect(source: object, options?: WatchOptions) {
-  return doWatch(source, null, options)
-}
-
-export { watch, watchEffect }
+export { baseWatch }

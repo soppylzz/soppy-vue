@@ -13,6 +13,7 @@ interface SchedulerJob extends Function {
   // indicates whether job is enabled
   active?: boolean
   allowRecurse?: boolean
+  // note: used for effect scope, ignored consumption in our impl
   ownerInstance?: ComponentInternalInstance
 }
 

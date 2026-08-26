@@ -1,5 +1,5 @@
 import type { DebuggerEvent } from "@soppy-vue/reactivity"
-import { resetTracking, setTracking } from "@soppy-vue/reactivity"
+import { resetTracking, toggleTracking } from "@soppy-vue/reactivity"
 import type { ComponentInternalInstance } from "./component"
 import { currentInstance, setCurrentInstance, unsetCurrentInstance } from "./component"
 import { LifecycleHooks } from "./constant"
@@ -19,7 +19,7 @@ function injectHook(
       (hook.__hook = (...args: unknown[]) => {
         if (target.isUnmounted) return
 
-        setTracking(false)
+        toggleTracking(false)
         setCurrentInstance(target)
         const res = hook(...args)
         unsetCurrentInstance()
