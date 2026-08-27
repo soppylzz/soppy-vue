@@ -6,13 +6,15 @@ import tseslint from "typescript-eslint"
 import importPlugin from "eslint-plugin-import"
 import { default as jsonc } from "eslint-plugin-jsonc"
 
+// light: defineConfig use jsDoc to validate configs
 export default defineConfig([
-  // defineConfig use jsDoc to validate configs
+  /* =============== ignores =============== */
   {
     // must include "**/" wildcard to ignore `dist`, `node_modules` at all levels
     ignores: ["**/dist", "**/node_modules", "pnpm-lock.yaml"],
   },
 
+  /* =============== extends =============== */
   // json5 parser allows: comments, trailing commas, unquoted keys
   ...jsonc.configs["recommended-with-json5"],
   ...jsonc.configs.prettier,
@@ -22,6 +24,7 @@ export default defineConfig([
   importPlugin.flatConfigs.recommended,
   importPlugin.flatConfigs.typescript,
 
+  /* =============== base config =============== */
   {
     rules: {
       "import/no-unresolved": "off",
@@ -40,14 +43,8 @@ export default defineConfig([
       },
     },
   },
-  {
-    files: ["**/*.{json,jsonc,json}"],
-    languageOptions: {
-      parser: jsonc,
-    },
-  },
 
-  // markdown relatives
+  /* =============== markdown relatives =============== */
   {
     name: "markdown/custom",
     files: ["**/*.md"],
@@ -83,7 +80,15 @@ export default defineConfig([
     },
   },
 
-  // ts relatives
+  /* =============== json rules =============== */
+  {
+    files: ["**/*.{json,jsonc,json}"],
+    languageOptions: {
+      parser: jsonc,
+    },
+  },
+
+  /* =============== ts rules =============== */
   {
     files: ["**/*.ts"],
     rules: {
@@ -95,18 +100,30 @@ export default defineConfig([
           prefer: "type-imports",
         },
       ],
-      // allow use `Function` directly
+      /**
+       * special allows below:
+       * 1. allow use `Function` directly
+       * 2. allow `xxx && yyy`
+       * 3. allow `interface XXX extends {}`
+       */
       "@typescript-eslint/no-unsafe-function-type": "off",
-
-      // allow `xxx && yyy`
       "@typescript-eslint/no-unused-expressions": "off",
-
-      // allow `interface XXX extends {}`
       "@typescript-eslint/no-empty-object-type": "off",
-
-      // temporarily disable any-check, for lib quick building
+      /**
+       * note: in face, we must disable this check, even with
+       * well-implemented type annotation, the use of `any` is
+       * still unavoidable, same applies to `tsconfig`.
+       */
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unused-vars": ["off", { argsIgnorePattern: "^_" }],
+    },
+  },
+
+  /* =============== ts spec rules =============== */
+  {
+    files: ["**/*.spec.ts"],
+    rules: {
+      "@typescript-eslint/no-this-alias": "off",
     },
   },
 ])

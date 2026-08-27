@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
       __DEV__: isDev,
     },
     resolve: {
-      alias: buildAlias(isDev),
+      alias: buildAlias(),
     },
     server: {
       port: 4321,

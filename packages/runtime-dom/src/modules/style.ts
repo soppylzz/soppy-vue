@@ -1,7 +1,11 @@
 import type { MaybeArray } from "@soppy-vue/shared"
 import { isArray, isString } from "@soppy-vue/shared"
 
-type Style = string | Record<string, string> | null
+/**
+ * fix: update Style defination, ensure consistency between
+ * TS annotation with actual processing type
+ */
+type Style = string | Record<string, MaybeArray<string>> | null
 
 function setStyle(style: CSSStyleDeclaration, name: string, val: MaybeArray<string>) {
   if (isArray(val)) {

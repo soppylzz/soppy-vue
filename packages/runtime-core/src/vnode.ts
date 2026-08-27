@@ -476,4 +476,6 @@ export {
   isVNode,
   isSameVNodeType,
   invokeVNodeHook,
+  // export for spec testing
+  mergeProps,
 }

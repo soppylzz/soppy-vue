@@ -152,6 +152,14 @@ interface ComponentInternalInstance {
 
   [LifecycleHooks.DEACTIVATED]: LifecycleHook
   [LifecycleHooks.ACTIVATED]: LifecycleHook
+
+  /**
+   * why are render dev hooks not declared on `ComponentInternalInstance`,
+   * yet still can be set in `setupRenderEffect`, but can't in the spec?
+   * any way, add the annotations here.
+   */
+  [LifecycleHooks.RENDER_TRACKED]: LifecycleHook
+  [LifecycleHooks.RENDER_TRIGGERED]: LifecycleHook
 }
 
 export type {
@@ -218,6 +226,9 @@ function createComponentInstance(vnode: VNode, parent: ComponentInternalInstance
     updated: null,
     deactivated: null,
     activated: null,
+
+    renderTracked: null,
+    renderTriggered: null,
   }
 
   instance.ctx = { _: instance }

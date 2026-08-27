@@ -11,7 +11,8 @@ interface Invoker extends EventListener {
 
 function createInvoker(value: EventValue) {
   const invoker: Invoker = (e: Event) => {
-    const listeners = ensureArray(patchStopImmediatePropagation(e, value))
+    // fix: read `invoker.value` at dispatch time so re-patched event handlers take effect
+    const listeners = ensureArray(patchStopImmediatePropagation(e, invoker.value))
     listeners.forEach((fn) => fn(e))
   }
   invoker.value = value

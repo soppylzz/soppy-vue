@@ -822,6 +822,7 @@ function createBaseRenderer(options: RendererOptions): Renderer {
     toggleRecurse(instance, true)
 
     if (__DEV__) {
+      // note: consume dev render hooks here
       const rtc = instance[LifecycleHooks.RENDER_TRACKED]
       const rtg = instance[LifecycleHooks.RENDER_TRIGGERED]
       effect.onTrack = rtc ? (e) => syncRunFns(rtc, e) : undefined

@@ -5,7 +5,7 @@
  * - class injection impl (e.g. {@link ElementWithTransition})
  */
 import type { BaseTransitionProps, FunctionalComponent } from "@soppy-vue/runtime-core"
-import { BaseTransition, createVNode } from "@soppy-vue/runtime-core"
+import { BaseTransition, BaseTransitionPropsValidators, createVNode } from "@soppy-vue/runtime-core"
 import type { MaybeArray } from "@soppy-vue/shared"
 import { ensureArray, extend, isObject, syncRunFns, toNumber } from "@soppy-vue/shared"
 import { TransitionFlags } from "../constants"
@@ -24,7 +24,7 @@ const normalizeDuration = (duration: TransitionProps["duration"]): [number, numb
 }
 
 const invokeHook = (hooks?: MaybeArray<Function>, args: any[] = []) =>
-  hooks && syncRunFns(ensureArray(hooks), args)
+  hooks && syncRunFns(ensureArray(hooks), ...args)
 
 /**
  * rename: `hasExplicitCallback` -> `hasCustomizedDoneHook`
@@ -206,6 +206,15 @@ function resolveTransitionProps(rawProps: TransitionProps): BaseTransitionProps<
 
 const Transition: FunctionalComponent<TransitionProps> = (props, { slots }) =>
   createVNode(BaseTransition, resolveTransitionProps(props) as unknown as any, slots)
+
+/**
+ * note: define the functional component structure for Transition:
+ * - declare props validator, consumes props without runtime validation,
+ *   since our vue does not impl so far
+ * - set display to ensure consistency in names before and after bundle
+ */
+Transition.display = "Transition"
+Transition.props = extend({}, BaseTransitionPropsValidators, DOMTransitionPropsValidators)
 
 export type { TransitionProps }
 export { Transition }

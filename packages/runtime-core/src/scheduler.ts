@@ -65,7 +65,18 @@ function invalidateJob(job: SchedulerJob) {
  * designed `job.pre`
  */
 const queue: SchedulerJob[] = []
-let flushIdx = 0
+
+/**
+ * light: fix a bug where {@link invalidateJob} could not remove the task at
+ * the front of the queue (actually present in Vue 3.4), due to:
+ *
+ * @example
+ * ```ts
+ * // i = 0, flushIdx = 0 (initial)
+ * const check = i > flushIdx // => false
+ * ```
+ */
+let flushIdx = -1
 
 function queueJob(job: SchedulerJob) {
   /**

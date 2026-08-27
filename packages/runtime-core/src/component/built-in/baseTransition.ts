@@ -205,7 +205,7 @@ function resolveTransitionHooks(
   const invokeHook = <T extends any[] = [el: any]>(
     hooks: MaybeArray<(...args: T) => void> | undefined,
     args: T
-  ) => hooks && syncRunFns(ensureArray(hooks), args)
+  ) => hooks && syncRunFns(ensureArray(hooks), ...args)
 
   const invokeHookAutoDone = (
     hook: MaybeArray<(el: any, done: () => void) => void>,
