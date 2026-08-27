@@ -70,11 +70,12 @@ function toRaw<T>(observed: T): T {
 }
 
 function isReactive(value: unknown): boolean {
-  return !!((value as any)[ReactiveFlags.IS_REACTIVE] === true)
+  // fix: add `isReactive(null)` support, should check whether value is null
+  return !!(value && (value as any)[ReactiveFlags.IS_REACTIVE] === true)
 }
 
 function isShallow(value: unknown): boolean {
-  return !!((value as any)[ReactiveFlags.IS_SHALLOW] === true)
+  return !!(value && (value as any)[ReactiveFlags.IS_SHALLOW] === true)
 }
 
 /**

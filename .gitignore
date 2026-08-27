@@ -1,6 +1,14 @@
-node_modules/
-
-dist/
-
+# os
 .DS_Store
+Thumbs.db
+# ide
+.idea
+# pnpm
+node_modules
+pnpm-debug.log*
+# artifacts
+dist
+coverage
 *.tsbuildinfo
+# agent artifacts
+*.temp.md

@@ -6,11 +6,13 @@
     "rootDir": "packages",
     "types": ["node"],
     "lib": ["dom", "esnext"],
-    // temporally disable implicit any check
+    "noEmit": false,
+    // unavoidable to use `any` in the impl of soppy-vue
     "noImplicitAny": false,
+    "emitDeclarationOnly": true,
     "paths": {
       "@soppy-vue/*": ["./packages/*/src"]
     }
   },
-  "include": ["packages/*/src", "packages/global.d.ts"]
+  "include": ["packages/*/src", "global.d.ts"]
 }

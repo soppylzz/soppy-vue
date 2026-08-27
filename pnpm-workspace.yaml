@@ -5,4 +5,11 @@ allowBuilds:
 packages:
   - "packages/*"
   - "scripts/*"
-  - "playground"
+  - "internals/*"
+
+# follow vue's design, use `catalog` to
+# centrally manage package version
+catalog:
+  vite: "^8.2.2"
+  vitest: "^4.1.11"
+  tsup: "^8.5.1"

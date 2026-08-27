@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "lib": ["dom", "esnext"],
+    "types": ["node", "vitest/globals"],
+    // must use `relativePath` here
+    "paths": {
+      "@soppy-vue/test-utils": ["./internals/utils/src"],
+      "@soppy-vue/*": ["./packages/*/src"],
+      "soppy-vue": ["./packages/soppy-vue/src"],
+      // for internal unit specs
+      "@soppy-vue/shared/*": ["./packages/shared/src/*"],
+      "@soppy-vue/reactivity/*": ["./packages/reactivity/src/*"],
+      "@soppy-vue/runtime-core/*": ["./packages/runtime-core/src/*"],
+      "@soppy-vue/runtime-dom/*": ["./packages/runtime-dom/src/*"]
+    }
+  },
+  "include": ["internals/**/*.ts", "packages/*/src", "global.d.ts"]
+}

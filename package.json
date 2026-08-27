@@ -4,15 +4,17 @@
   "scripts": {
     "build:dev": "pnpm run -C scripts/build build --dev",
     "build:prod": "pnpm run -C scripts/build build --prod",
+    "build:test-utils": "pnpm run -C internals/utils build",
     "format": "prettier --write --experimental-cli .",
     "lint": "eslint . --ext .js,.mjs,.cjs,.ts,.json,.md --max-warnings 0",
-    "lint:fix": "pnpm run lint --fix",
+    "lint:fix": "pnpm lint --fix",
     "commit": "cz",
     "version": "changeset version",
     "release": "changeset publish",
-    "play:web": "pnpm run -C playground web",
-    "play:node": "pnpm run -C playground node",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:dev": "pnpm build:test-utils && pnpm run -C internals/test test --mode dev",
+    "test:prod": "pnpm build:test-utils && pnpm run build:prod && pnpm run -C internals/test test --mode prod --coverage",
+    "test:watch": "pnpm build:test-utils && pnpm run -C internals/test test:watch"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.7.0",
@@ -22,16 +24,17 @@
     "@commitlint/cz-commitlint": "^21.2.0",
     "@soppy-vue/build": "workspace:*",
     "@soppy-vue/eslint": "workspace:*",
-    "@types/node": "^26.1.2",
+    "@types/node": "^22.20.1",
     "commitizen": "^4.3.2",
-    "eslint": "^9.39.5",
+    "eslint": "^10.9.1",
     "husky": "^9.1.7",
     "inquirer": "^9.3.8",
     "lint-staged": "^17.2.0",
     "lodash-unified": "^1.0.3",
     "prettier": "^3.9.6",
     "rolldown": "^1.2.1",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "catalog:"
   },
   "lint-staged": {
     "*.{js,mjs,cjs,ts,json,md}": [

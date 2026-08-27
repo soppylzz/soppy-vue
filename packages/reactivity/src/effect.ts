@@ -115,6 +115,9 @@ class ReactiveEffect<T = any> {
       // eslint-disable-next-line @typescript-eslint/no-this-alias
       activeEffect = this
 
+      // fix: force shouldTrack enabled
+      shouldTrack = true
+
       // light: clean last collection via simple-diff algorithm
       this.#preClean()
       // light: avoid function call stack overflow
@@ -141,12 +144,15 @@ class ReactiveEffect<T = any> {
 export { activeEffect, ReactiveEffect }
 
 /* ==================== create effect ==================== */
-interface ReactiveEffectOptions extends DebuggerEvent {
+// fix: typo error of effect options
+interface ReactiveEffectOptions extends DebuggerOptions {
   scheduler?: EffectScheduler
   // indicates whether track when **creating**
   lazy?: boolean
   // allow recurse, effect on triggerEffect
   allowRecurse?: boolean
+  // cleanup callback, invoked once on stop
+  onStop?: () => void
 }
 
 interface ReactiveEffectRunner<T = any> {
@@ -165,12 +171,9 @@ function effect(fn: EffectFunction, options?: ReactiveEffectOptions): ReactiveEf
     _effect.dirty && _effect.run()
   })
 
+  // fix: should update runner.scheduler before first running
+  options && extend(_effect, options)
   !options?.lazy && _effect.run()
-
-  if (options) {
-    // update runner.scheduler
-    extend(_effect, options)
-  }
 
   // return run(), which `this` point at effectObj
   const runner = _effect.run.bind(_effect) as ReactiveEffectRunner

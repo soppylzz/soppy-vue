@@ -1,0 +1,28 @@
+{
+  "name": "@soppy-vue/test",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest watch --mode dev"
+  },
+  "dependencies": {
+    "@soppy-vue/reactivity": "workspace:*",
+    "@soppy-vue/runtime-core": "workspace:*",
+    "@soppy-vue/runtime-dom": "workspace:*",
+    "@soppy-vue/shared": "workspace:*",
+    "soppy-vue": "workspace:*"
+  },
+  "devDependencies": {
+    "@soppy-vue/test-utils": "workspace:*",
+    "@vitest/browser-playwright": "^4.1.11",
+    "@vitest/coverage-v8": "^4.1.11",
+    "jsdom": "^30.0.1",
+    "vitest": "catalog:"
+  },
+  "pnpm": {
+    "overrides": {
+      "vitest": "catalog:"
+    }
+  }
+}

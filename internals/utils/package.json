@@ -1,0 +1,13 @@
+{
+  "name": "@soppy-vue/test-utils",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsup"
+  },
+  "devDependencies": {
+    "vite": "catalog:",
+    "tsup": "catalog:"
+  }
+}

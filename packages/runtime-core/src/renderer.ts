@@ -10,6 +10,7 @@ import {
 import type { VNode, VNodeArrayChildren, VNodeKey } from "./vnode"
 import {
   cloneIfMounted,
+  Comment,
   Fragment,
   invokeVNodeHook,
   isSameVNodeType,

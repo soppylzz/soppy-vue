@@ -1,0 +1,14 @@
+{
+  "name": "@soppy-vue/play",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --mode dev",
+    "start": "vite"
+  },
+  "devDependencies": {
+    "soppy-vue": "workspace:*",
+    "@soppy-vue/test-utils": "workspace:*",
+    "vite": "catalog:"
+  }
+}

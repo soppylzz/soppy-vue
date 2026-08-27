@@ -40,5 +40,8 @@
   "[git-commit]": {
     "editor.rulers": [],
     "editor.wordWrap": "off"
-  }
+  },
+
+  // disable the built-in webhint
+  "vscode-edge-devtools.webhint": false
 }
