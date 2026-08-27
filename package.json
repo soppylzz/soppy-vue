@@ -4,17 +4,22 @@
   "scripts": {
     "build:dev": "pnpm run -C scripts/build build --dev",
     "build:prod": "pnpm run -C scripts/build build --prod",
-    "build:test-utils": "pnpm run -C internals/utils build",
     "format": "prettier --write --experimental-cli .",
     "lint": "eslint . --ext .js,.mjs,.cjs,.ts,.json,.md --max-warnings 0",
     "lint:fix": "pnpm lint --fix",
     "commit": "cz",
     "version": "changeset version",
     "release": "changeset publish",
-    "prepare": "husky",
-    "test:dev": "pnpm build:test-utils && pnpm run -C internals/test test --mode dev",
-    "test:prod": "pnpm build:test-utils && pnpm run build:prod && pnpm run -C internals/test test --mode prod --coverage",
-    "test:watch": "pnpm build:test-utils && pnpm run -C internals/test test:watch"
+    "pretest": "pnpm run -C internals/utils build",
+    "test": "pnpm run -C internals/test test",
+    "test:watch": "pnpm test watch",
+    "test:coverage": "pnpm test --coverage",
+    "test:publish": "pnpm build:prod && pnpm test --mode publish",
+    "preplay": "pnpm run -C internals/utils build",
+    "play": "pnpm run -C internals/playground vite",
+    "play:build": "pnpm play build",
+    "play:preview": "pnpm play preview",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.7.0",
@@ -32,6 +37,7 @@
     "lint-staged": "^17.2.0",
     "lodash-unified": "^1.0.3",
     "prettier": "^3.9.6",
+    "puppeteer": "^25.9.0",
     "rolldown": "^1.2.1",
     "typescript": "^6.0.3",
     "vitest": "catalog:"

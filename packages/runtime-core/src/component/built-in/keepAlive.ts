@@ -1,30 +1,15 @@
-import type {
-  ComponentInternalInstance,
-  ComponentOptions,
-  ConcreteComponent,
-  RendererElement,
-  RendererNode,
-  VNode,
-  VNodeProps,
-} from "@soppy-vue/runtime-dom"
-import {
-  cloneVNode,
-  getCurrentInstance,
-  isVNode,
-  onBeforeUnmount,
-  onMounted,
-  onUpdated,
-  queuePostFlushCbs,
-} from "@soppy-vue/runtime-dom"
+import type { ComponentInternalInstance, ConcreteComponent } from "../component"
+import type { ComponentOptions } from "../options"
+import type { RendererElement, RendererNode, RendererInternals } from "../../renderer"
+import type { VNode, VNodeProps, VNodeKey } from "../../vnode"
+import { cloneVNode, isVNode, invokeVNodeHook, isSameVNodeType } from "../../vnode"
+import { getCurrentInstance, currentInstance } from "../context"
+import { onBeforeUnmount, onMounted, onUpdated, injectHook } from "../../apiLifecycle"
+import { queuePostFlushCbs } from "../../scheduler"
 import type { ComponentRenderContext } from "../publicInstance"
 import { LifecycleHooks, MoveTypes, RuntimeFlags } from "../../constant"
-import type { RendererInternals } from "../../renderer"
 import { isArray, isRegExp, isString, ShapeFlags, syncRunFns } from "@soppy-vue/shared"
 import { getComponentName } from "../component"
-import type { VNodeKey } from "../../vnode"
-import { invokeVNodeHook, isSameVNodeType } from "../../vnode"
-import { currentInstance } from "../context"
-import { injectHook } from "../../apiLifecycle"
 
 interface KeepAliveContext extends ComponentRenderContext {
   renderer: RendererInternals

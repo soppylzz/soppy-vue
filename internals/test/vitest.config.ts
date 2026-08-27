@@ -3,20 +3,21 @@ import { playwright } from "@vitest/browser-playwright"
 import { buildAlias, projRoot, setupFile } from "@soppy-vue/test-utils"
 
 export default defineConfig(({ mode }) => {
-  const isDev = mode === "dev"
+  const isPublish = mode === "publish"
 
   return {
     root: projRoot,
     define: {
-      __DEV__: isDev,
+      __DEV__: !isPublish,
     },
     resolve: {
-      alias: buildAlias(),
+      alias: buildAlias(isPublish),
     },
     test: {
       globals: true,
       isolate: true,
-      setupFiles: !isDev ? setupFile : undefined,
+      // note: ensure bundle existing when running publish testing
+      setupFiles: isPublish ? setupFile : undefined,
       coverage: {
         provider: "v8",
         reporter: ["text", "html", "json-summary"],

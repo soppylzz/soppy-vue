@@ -1,132 +1,169 @@
 import { provide, inject } from "@soppy-vue/runtime-core"
-import { hasInjectionContext } from "@soppy-vue/runtime-core/apiInject"
-import { setCurrentInstance, unsetCurrentInstance } from "@soppy-vue/runtime-core/component/context"
-import { createComponentInstance } from "@soppy-vue/runtime-core/component"
-import { createVNode } from "@soppy-vue/runtime-core/vnode"
 import type { ComponentInternalInstance } from "@soppy-vue/runtime-core"
+import type { hasInjectionContext as _hasInjectionContext } from "@soppy-vue/runtime-core/apiInject"
+import type { createComponentInstance as _createComponentInstance } from "@soppy-vue/runtime-core/component"
+import type { createVNode as _createVNode } from "@soppy-vue/runtime-core/vnode"
+import type {
+  setCurrentInstance as _setCurrentInstance,
+  unsetCurrentInstance as _unsetCurrentInstance,
+} from "@soppy-vue/runtime-core/component/context"
 
-function makeInstance(parent: ComponentInternalInstance | null = null) {
-  return createComponentInstance(createVNode({}) as any, parent)
+const API_INJECT_MODULE = "@soppy-vue/runtime-core/apiInject"
+const COMPONENT_MODULE = "@soppy-vue/runtime-core/component"
+const VNODE_MODULE = "@soppy-vue/runtime-core/vnode"
+const CONTEXT_MODULE = "@soppy-vue/runtime-core/component/context"
+
+async function loadCreateComponentInstance() {
+  const mod = await import(COMPONENT_MODULE)
+  return mod.createComponentInstance as typeof _createComponentInstance
+}
+async function loadSetCurrentInstance() {
+  const mod = await import(CONTEXT_MODULE)
+  return mod.setCurrentInstance as typeof _setCurrentInstance
+}
+async function loadUnsetCurrentInstance() {
+  const mod = await import(CONTEXT_MODULE)
+  return mod.unsetCurrentInstance as typeof _unsetCurrentInstance
 }
 
-function withInstance<T>(instance: ComponentInternalInstance | null, fn: () => T): T {
-  if (instance) setCurrentInstance(instance)
-  try {
-    return fn()
-  } finally {
-    unsetCurrentInstance()
-  }
-}
-
-describe("provide / inject", () => {
+describe("provide / inject (outside a component)", () => {
   it("provide outside a component instance is a no-op", () => {
-    expect(() => withInstance(null, () => provide("key", "value"))).not.toThrow()
-    expect(withInstance(null, () => inject("key"))).toBeUndefined()
+    expect(() => provide("key", "value")).not.toThrow()
+    expect(inject("key")).toBeUndefined()
   })
 
   it("inject outside a component returns undefined even with a default", () => {
-    expect(withInstance(null, () => inject("key", "default"))).toBeUndefined()
+    expect(inject("key", "default")).toBeUndefined()
   })
 })
 
-describe("prototype-chain inheritance", () => {
-  it("parent provides are visible to child", () => {
-    const parent = makeInstance()
-    const child = makeInstance(parent)
+let hasInjectionContext: typeof _hasInjectionContext
+let createVNode: typeof _createVNode
 
-    withInstance(parent, () => provide("foo", "parent"))
-    expect(withInstance(child, () => inject("foo"))).toBe("parent")
+describe.runIf(__DEV__)("provide / inject (with an instance)", () => {
+  beforeAll(async () => {
+    ;({ hasInjectionContext } = await import(API_INJECT_MODULE))
+    ;({ createVNode } = await import(VNODE_MODULE))
   })
 
-  it("child provide with same key shadows parent via a fresh prototype object", () => {
-    const parent = makeInstance()
-    const child = makeInstance(parent)
+  async function makeInstance(parent: ComponentInternalInstance | null = null) {
+    const createComponentInstance = await loadCreateComponentInstance()
+    return createComponentInstance(createVNode({}) as any, parent)
+  }
 
-    withInstance(parent, () => provide("foo", "parent"))
+  async function withInstance<T>(
+    instance: ComponentInternalInstance | null,
+    fn: () => T
+  ): Promise<T> {
+    const setCurrentInstance = await loadSetCurrentInstance()
+    const unsetCurrentInstance = await loadUnsetCurrentInstance()
+    if (instance) setCurrentInstance(instance)
+    try {
+      return fn()
+    } finally {
+      unsetCurrentInstance()
+    }
+  }
 
-    // child.provides starts as the SAME reference as parent.provides
-    expect(child.provides).toBe(parent.provides)
+  describe("prototype-chain inheritance", () => {
+    it("parent provides are visible to child", async () => {
+      const parent = await makeInstance()
+      const child = await makeInstance(parent)
 
-    withInstance(child, () => provide("foo", "child"))
-
-    // first provide detaches the child's provides via Object.create(parentProvides)
-    expect(child.provides).not.toBe(parent.provides)
-    expect(Object.getPrototypeOf(child.provides)).toBe(parent.provides)
-
-    // a grandchild injects the shadowed value (own property wins over the proto chain)
-    const grandchild = makeInstance(child)
-    expect(withInstance(grandchild, () => inject("foo"))).toBe("child")
-  })
-
-  it("sibling components do not leak provides to each other", () => {
-    const parent = makeInstance()
-    const a = makeInstance(parent)
-    const b = makeInstance(parent)
-
-    withInstance(parent, () => provide("foo", "parent"))
-    withInstance(a, () => provide("bar", "from-a"))
-
-    // b reads its parent's provides only, never a sibling's
-    expect(withInstance(b, () => inject("bar"))).toBeUndefined()
-    expect(withInstance(b, () => inject("foo"))).toBe("parent")
-  })
-})
-
-describe("default value", () => {
-  it("inject(key, defaultValue) returns the default when not provided", () => {
-    const instance = makeInstance()
-    expect(withInstance(instance, () => inject("missing", "fallback"))).toBe("fallback")
-  })
-
-  it("inject(key, factoryFn) calls the factory and returns its result", () => {
-    const instance = makeInstance()
-    let calls = 0
-    const value = withInstance(instance, () =>
-      inject("missing", () => {
-        calls++
-        return "computed"
-      })
-    )
-    expect(calls).toBe(1)
-    expect(value).toBe("computed")
-  })
-
-  it("factory is NOT called when the key is provided", () => {
-    const parent = makeInstance()
-    const child = makeInstance(parent)
-    withInstance(parent, () => provide("foo", "present"))
-
-    let calls = 0
-    const value = withInstance(child, () =>
-      inject("foo", () => {
-        calls++
-        return "default"
-      })
-    )
-    expect(calls).toBe(0)
-    expect(value).toBe("present")
-  })
-})
-
-describe("InjectionKey", () => {
-  it("symbol-keyed provide/inject round-trips", () => {
-    const KEY = Symbol("key")
-    const parent = makeInstance()
-    const child = makeInstance(parent)
-
-    withInstance(parent, () => provide(KEY, "symbol-value"))
-    expect(withInstance(child, () => inject(KEY))).toBe("symbol-value")
-  })
-})
-
-describe("hasInjectionContext", () => {
-  it("returns false outside an instance and true inside one", () => {
-    expect(hasInjectionContext()).toBe(false)
-    const instance = makeInstance()
-    let inside = false
-    withInstance(instance, () => {
-      inside = hasInjectionContext()
+      await withInstance(parent, () => provide("foo", "parent"))
+      expect(await withInstance(child, () => inject("foo"))).toBe("parent")
     })
-    expect(inside).toBe(true)
+
+    it("child provide with same key shadows parent via a fresh prototype object", async () => {
+      const parent = await makeInstance()
+      const child = await makeInstance(parent)
+
+      await withInstance(parent, () => provide("foo", "parent"))
+
+      // child.provides starts as the SAME reference as parent.provides
+      expect(child.provides).toBe(parent.provides)
+
+      await withInstance(child, () => provide("foo", "child"))
+
+      // first provide detaches the child's provides via Object.create(parentProvides)
+      expect(child.provides).not.toBe(parent.provides)
+      expect(Object.getPrototypeOf(child.provides)).toBe(parent.provides)
+
+      // a grandchild injects the shadowed value (own property wins over the proto chain)
+      const grandchild = await makeInstance(child)
+      expect(await withInstance(grandchild, () => inject("foo"))).toBe("child")
+    })
+
+    it("sibling components do not leak provides to each other", async () => {
+      const parent = await makeInstance()
+      const a = await makeInstance(parent)
+      const b = await makeInstance(parent)
+
+      await withInstance(parent, () => provide("foo", "parent"))
+      await withInstance(a, () => provide("bar", "from-a"))
+
+      // b reads its parent's provides only, never a sibling's
+      expect(await withInstance(b, () => inject("bar"))).toBeUndefined()
+      expect(await withInstance(b, () => inject("foo"))).toBe("parent")
+    })
+  })
+
+  describe("default value", () => {
+    it("inject(key, defaultValue) returns the default when not provided", async () => {
+      const instance = await makeInstance()
+      expect(await withInstance(instance, () => inject("missing", "fallback"))).toBe("fallback")
+    })
+
+    it("inject(key, factoryFn) calls the factory and returns its result", async () => {
+      const instance = await makeInstance()
+      let calls = 0
+      const value = await withInstance(instance, () =>
+        inject("missing", () => {
+          calls++
+          return "computed"
+        })
+      )
+      expect(calls).toBe(1)
+      expect(value).toBe("computed")
+    })
+
+    it("factory is NOT called when the key is provided", async () => {
+      const parent = await makeInstance()
+      const child = await makeInstance(parent)
+      await withInstance(parent, () => provide("foo", "present"))
+
+      let calls = 0
+      const value = await withInstance(child, () =>
+        inject("foo", () => {
+          calls++
+          return "default"
+        })
+      )
+      expect(calls).toBe(0)
+      expect(value).toBe("present")
+    })
+  })
+
+  describe("InjectionKey", () => {
+    it("symbol-keyed provide/inject round-trips", async () => {
+      const KEY = Symbol("key")
+      const parent = await makeInstance()
+      const child = await makeInstance(parent)
+
+      await withInstance(parent, () => provide(KEY, "symbol-value"))
+      expect(await withInstance(child, () => inject(KEY))).toBe("symbol-value")
+    })
+  })
+
+  describe("hasInjectionContext", () => {
+    it("returns false outside an instance and true inside one", async () => {
+      expect(hasInjectionContext()).toBe(false)
+      const instance = await makeInstance()
+      let inside = false
+      await withInstance(instance, () => {
+        inside = hasInjectionContext()
+      })
+      expect(inside).toBe(true)
+    })
   })
 })

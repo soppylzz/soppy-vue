@@ -1,6 +1,14 @@
-import { nodeOps } from "@soppy-vue/runtime-dom/nodeOps"
+import type { nodeOps as _nodeOps } from "@soppy-vue/runtime-dom/nodeOps"
 
-describe("nodeOps", () => {
+const NODE_OPS_MODULE = "@soppy-vue/runtime-dom/nodeOps"
+
+let nodeOps: typeof _nodeOps
+
+describe.runIf(__DEV__)("nodeOps", () => {
+  beforeAll(async () => {
+    ;({ nodeOps } = await import(NODE_OPS_MODULE))
+  })
+
   it("insert(el, parent, anchor) inserts before anchor; null anchor appends", () => {
     const parent = document.createElement("div")
     const a = document.createElement("span")

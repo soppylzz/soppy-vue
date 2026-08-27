@@ -14,11 +14,12 @@ permissions:
   actions: read
   contents: write
   pull-requests: write
+  pages: write
   id-token: write
 
 jobs:
-  lib:
-    name: release npm packages
+  test:
+    name: coverage & publish verification
     runs-on: ubuntu-latest
     if: github.event.workflow_run.conclusion == 'success'
 
@@ -30,8 +31,60 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: Install deps via lockfile
-        run: pnpm install --frozen-lockfile
+      - name: Install deps
+        run: pnpm install
+
+      - name: Prepare puppeteer and playwright
+        run: |
+          node node_modules/puppeteer/install.mjs
+          pnpm exec playwright install chromium
+
+      - name: Generate coverage report
+        run: pnpm run test:coverage
+
+      - name: Verify against publish bundles
+        run: pnpm run test:publish
+
+      - name: Upload coverage artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: coverage
+
+  coverage:
+    name: publish coverage site
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.event.workflow_run.conclusion == 'success'
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v5
+
+  lib:
+    name: release npm packages
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install deps
+        run: pnpm install
 
       - name: Build npm packages
         run: pnpm run build:prod
@@ -47,12 +100,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-  docs:
-    name: release docs site
-    runs-on: ubuntu-latest
-    needs: [lib]
-
-    steps:
-      - name: Publish docs site via github pages
-        run: echo "[Mock] Publish docs site via github pages"

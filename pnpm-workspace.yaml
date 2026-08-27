@@ -1,6 +1,7 @@
 # tsup required
 allowBuilds:
   esbuild: true
+  puppeteer: true
 
 packages:
   - "packages/*"

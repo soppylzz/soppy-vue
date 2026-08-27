@@ -1,21 +1,13 @@
-import type {
-  ComponentInternalInstance,
-  RendererElement,
-  VNode,
-  VNodeArrayChildren,
-} from "@soppy-vue/runtime-dom"
-import {
-  cloneVNode,
-  Fragment,
-  getCurrentInstance,
-  onBeforeUnmount,
-  onMounted,
-  toRaw,
-} from "@soppy-vue/runtime-dom"
+import type { ComponentInternalInstance } from "../component"
+import type { RendererElement } from "../../renderer"
+import type { VNode, VNodeArrayChildren } from "../../vnode"
+import { cloneVNode, Fragment, isSameVNodeType } from "../../vnode"
+import { getCurrentInstance } from "../context"
+import { onBeforeUnmount, onMounted } from "../../apiLifecycle"
+import { toRaw } from "@soppy-vue/reactivity"
 import type { MaybeArray } from "@soppy-vue/shared"
 import { ensureArray, isFunction, PatchFlags, ShapeFlags, syncRunFns } from "@soppy-vue/shared"
 import { isKeepAlive } from "./keepAlive"
-import { isSameVNodeType } from "../../vnode"
 import type { ComponentOptions } from "../options"
 
 /* ==================== base utils ==================== */

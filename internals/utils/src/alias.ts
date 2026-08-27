@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs"
-import { join, resolve } from "node:path"
-import { internalRoot, packagesRoot } from "./constants"
+import { join } from "node:path"
+import { packagesRoot } from "./constants"
 import type { Alias } from "vite"
 
 function readPackageName(pkgDir: string): string | undefined {
@@ -15,10 +15,11 @@ function readPackageName(pkgDir: string): string | undefined {
   }
 }
 
-function buildAlias() {
+function buildAlias(isPublish: boolean) {
   const aliases: Alias[] = []
 
-  if (existsSync(packagesRoot)) {
+  // note: if not in publish mode, use bundle to test
+  if (!isPublish && existsSync(packagesRoot)) {
     const dirs = readdirSync(packagesRoot, { withFileTypes: true }).filter((d) => d.isDirectory())
 
     for (const dir of dirs) {

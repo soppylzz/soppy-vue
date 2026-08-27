@@ -1,17 +1,13 @@
+import type { ComponentInternalInstance } from "../component"
 import type {
-  ComponentInternalInstance,
   RendererElement,
   RendererNode,
-  VNode,
-  VNodeArrayChildren,
-  VNodeProps,
-} from "@soppy-vue/runtime-dom"
-import { MoveTypes, RuntimeFlags, TeleportMoveTypes } from "../../constant"
-import {
-  traverseStaticChildren,
-  type RendererInternals,
-  type RendererOptions,
+  RendererInternals,
+  RendererOptions,
 } from "../../renderer"
+import { traverseStaticChildren } from "../../renderer"
+import type { VNode, VNodeArrayChildren, VNodeProps } from "../../vnode"
+import { MoveTypes, RuntimeFlags, TeleportMoveTypes } from "../../constant"
 import { isString, ShapeFlags } from "@soppy-vue/shared"
 
 interface TeleportProps {

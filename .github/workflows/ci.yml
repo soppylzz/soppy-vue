@@ -7,17 +7,19 @@ on:
       - reopened
       - synchronize
   push:
-    branches: [__disable]
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-jobs:
-  ci:
-    name: lint & test
-    runs-on: ubuntu-latest
+permissions:
+  contents: read
 
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -26,8 +28,34 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: Install deps via lockfile
-        run: pnpm install --frozen-lockfile
+      - name: Install deps
+        run: pnpm install
 
       - name: Lint js, ts, md and json files
         run: pnpm run lint
+
+  test:
+    name: test (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [unit, unit-jsdom, e2e-jsdom, e2e-browser]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install deps
+        run: pnpm install
+
+      - name: Prepare puppeteer and playwright
+        run: |
+          node node_modules/puppeteer/install.mjs
+          pnpm exec playwright install chromium
+
+      - name: Run tests for ${{ matrix.project }}
+        run: pnpm test --project ${{ matrix.project }} --passWithNoTests

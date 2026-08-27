@@ -1,15 +1,14 @@
 import { defineConfig } from "vite"
 import { buildAlias } from "@soppy-vue/test-utils"
 
-export default defineConfig(({ mode }) => {
-  const isDev = mode === "dev"
-
+export default defineConfig(() => {
   return {
     define: {
-      __DEV__: isDev,
+      __DEV__: true,
     },
     resolve: {
-      alias: buildAlias(),
+      // note: always enable alias
+      alias: buildAlias(false),
     },
     server: {
       port: 4321,

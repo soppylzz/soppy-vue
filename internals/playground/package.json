@@ -3,12 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --mode dev",
-    "start": "vite"
+    "vite": "vite"
   },
   "devDependencies": {
+    "vite": "catalog:",
     "soppy-vue": "workspace:*",
-    "@soppy-vue/test-utils": "workspace:*",
-    "vite": "catalog:"
+    "@soppy-vue/test-utils": "workspace:*"
   }
 }
