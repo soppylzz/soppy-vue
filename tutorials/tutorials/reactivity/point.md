@@ -1,4 +1,8 @@
-## Computed track
+---
+title: "Computed track"
+---
+
+# Computed track
 
 注意 `ComputedRefImpl` 的依赖收集过程不能在 if 中执行：
 

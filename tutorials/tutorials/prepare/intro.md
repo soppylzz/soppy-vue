@@ -1,4 +1,8 @@
-## Composition API
+---
+title: "Composition API"
+---
+
+# Composition API
 
 在 Vue 2 中，官方推荐使用 Options API 来组织组件逻辑，即将 `data`、`methods`、`computed`、`watch`等按类型划分到不同选项中。这种模式在简单场景下清晰直观，但随着业务逻辑日益复杂，同一功能相关的代码往往被分散到多个选项中，导致维护成本显著上升，代码可读性也随之下降。
 

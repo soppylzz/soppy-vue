@@ -1,4 +1,8 @@
-## Linter
+---
+title: "Linter"
+---
+
+# Linter
 
 ### 1. Eslint
 

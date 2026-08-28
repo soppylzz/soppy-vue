@@ -1,4 +1,8 @@
-## DOM
+---
+title: "DOM"
+---
+
+# DOM
 
 > 如果想更加细致地了解 Web API，可以查阅 [MDN - Web AP](https://developer.mozilla.org/zh-CN/docs/Web/API) 。
 

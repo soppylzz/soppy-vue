@@ -1,4 +1,8 @@
-## Release
+---
+title: "Release"
+---
+
+# Release
 
 Monorepo 项目根据最终代码的发布方式，通常可以分为两种模式：
 

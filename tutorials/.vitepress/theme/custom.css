@@ -1,0 +1,86 @@
+:root {
+  --vp-font-family-base:
+    "LXGW WenKai Screen", "LXGW WenKai Screen R", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+
+  --vp-c-bg: #faf9f5;
+  --vp-c-bg-alt: #f0eee6;
+  --vp-c-bg-elv: #ffffff;
+  --vp-c-bg-soft: #f0eee6;
+
+  --vp-c-text-1: #29261f;
+  --vp-c-text-2: #57534a;
+  --vp-c-text-3: #8a8578;
+
+  --vp-c-divider: #e7e3d9;
+  --vp-c-border: #e7e3d9;
+
+  --vp-c-brand-1: #d97757;
+  --vp-c-brand-2: #b85c38;
+  --vp-c-brand-3: #e0965a;
+  --vp-c-brand-soft: rgba(217, 119, 87, 0.14);
+
+  --vp-nav-logo-height: 30px;
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(
+    120deg,
+    var(--vp-c-brand-1) 20%,
+    var(--vp-c-brand-2) 55%,
+    var(--vp-c-brand-3) 90%
+  );
+
+  /** 
+   * hero monogram background strokes (mode-aware, see HeroLogo.vue): 
+   * ghost = faint outline ≈ page bg, body = solid strokes ≈ bg-alt
+   */
+  --hero-mark-accent: var(--vp-c-text-2);
+  --hero-mark-ghost: var(--vp-c-bg);
+  --hero-mark-body: var(--vp-c-bg-soft);
+}
+
+/* serif for emphasis: headings + hero + card titles */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.VPHero .name,
+.VPHero .text,
+.VPHero .tagline,
+.VPFeature .title {
+  font-family:
+    "Noto Serif SC", "LXGW WenKai Screen", "Source Han Serif SC", "Songti SC", Georgia, serif;
+}
+
+.dark {
+  --vp-c-bg: #1c1c1a;
+  --vp-c-bg-alt: #262624;
+  --vp-c-bg-elv: #2c2c29;
+  --vp-c-bg-soft: #262624;
+
+  --vp-c-text-1: #ede9df;
+  --vp-c-text-2: #b8b2a4;
+  --vp-c-text-3: #8a8578;
+
+  --vp-c-divider: #36342f;
+  --vp-c-border: #36342f;
+
+  --vp-c-brand-1: #e0965a;
+  --vp-c-brand-2: #f0c4a0;
+  --vp-c-brand-3: #d97757;
+  --vp-c-brand-soft: rgba(224, 150, 90, 0.2);
+}
+
+/*
+ * On mobile the hero stacks logo-over-title. The logo's breathing halo (in
+ * HeroLogo.vue) bleeds behind the title text. Give `.main` a background that
+ * fades from the page bg to transparent, so it's invisible when the two don't
+ * overlap but shields the title when they do.
+ */
+@media (max-width: 959px) {
+  .VPHero .main {
+    background: radial-gradient(ellipse 100% 80% at 50% 100%, var(--vp-c-bg) 0%, transparent 100%);
+  }
+}

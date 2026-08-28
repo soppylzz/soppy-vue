@@ -7,6 +7,7 @@ packages:
   - "packages/*"
   - "scripts/*"
   - "internals/*"
+  - "tutorials"
 
 # follow vue's design, use `catalog` to
 # centrally manage package version
@@ -14,3 +15,5 @@ catalog:
   vite: "^8.2.2"
   vitest: "^4.1.11"
   tsup: "^8.5.1"
+  # ensure root tsconfig can resolve "vitepress/client"
+  vitepress: "^1.6.4"

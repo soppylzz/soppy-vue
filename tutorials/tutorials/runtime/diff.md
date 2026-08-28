@@ -1,4 +1,8 @@
-## Diff
+---
+title: "Diff"
+---
+
+# Diff
 
 Vue 的 `patchKeyedChildren` 负责在 patch 阶段处理 `vnode.children` 从数组到数组的更新。
 

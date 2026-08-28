@@ -1,4 +1,8 @@
-## PkgManager
+---
+title: "PkgManager"
+---
+
+# PkgManager
 
 本项目使用 `nvm@0.40.6` + `node@22.23.2` + `pnpm@11.17.0` 搭建开发运行环境，这里就不介绍它们的安装流程，主要讲解一下我的使用心得。
 

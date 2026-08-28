@@ -1,4 +1,8 @@
-## Proxy
+---
+title: "Proxy"
+---
+
+# Proxy
 
 > 处理 `target[key]` 无法处理依赖收集的问题
 

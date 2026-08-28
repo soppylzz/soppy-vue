@@ -1,4 +1,8 @@
-## Runtime
+---
+title: "Runtime"
+---
+
+# Runtime
 
 Vue 的运行时模块由 `runtime-core` 和 `runtime-dom` 两个子包组成。它们之间通过依赖注入解耦：
 

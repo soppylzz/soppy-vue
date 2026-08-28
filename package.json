@@ -19,6 +19,9 @@
     "play": "pnpm run -C internals/playground vite",
     "play:build": "pnpm play build",
     "play:preview": "pnpm play preview",
+    "tutorial": "pnpm run -C tutorials vitepress",
+    "tutorial:build": "pnpm tutorial build",
+    "tutorial:preview": "pnpm tutorial preview",
     "prepare": "husky"
   },
   "devDependencies": {
@@ -40,6 +43,7 @@
     "puppeteer": "^25.9.0",
     "rolldown": "^1.2.1",
     "typescript": "^6.0.3",
+    "vitepress": "catalog:",
     "vitest": "catalog:"
   },
   "lint-staged": {

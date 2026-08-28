@@ -10,5 +10,9 @@ pnpm-debug.log*
 dist
 coverage
 *.tsbuildinfo
+# vitepress
+**/.vitepress/dist
+**/.vitepress/cache
 # agent artifacts
 *.temp.md
+.playwright-mcp

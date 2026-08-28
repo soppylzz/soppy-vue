@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "tutorials",
+    "lib": ["dom", "esnext"],
+    // `vitepress/client` re-exports `vite/client`, which declares `*.css`
+    // modules so `.ts` files can `import "./x.css"` without a type error.
+    "types": ["vitepress/client"]
+  },
+  "include": ["tutorials/.vitepress/**/*"],
+  "exclude": ["tutorials/.vitepress/cache/**/*"]
+}

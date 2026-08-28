@@ -39,19 +39,19 @@ jobs:
           node node_modules/puppeteer/install.mjs
           pnpm exec playwright install chromium
 
-      - name: Generate coverage report
-        run: pnpm run test:coverage
-
       - name: Verify against publish bundles
         run: pnpm run test:publish
 
-      - name: Upload coverage artifact
+      - name: Build docs
+        run: pnpm run tutorial:build
+
+      - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: coverage
+          path: tutorials/.vitepress/dist
 
-  coverage:
-    name: publish coverage site
+  docs:
+    name: publish site
     runs-on: ubuntu-latest
     needs: [test]
     if: github.event.workflow_run.conclusion == 'success'

@@ -11,7 +11,7 @@ export default defineConfig([
   /* =============== ignores =============== */
   {
     // must include "**/" wildcard to ignore `dist`, `node_modules` at all levels
-    ignores: ["**/dist", "**/node_modules", "pnpm-lock.yaml"],
+    ignores: ["**/dist", "**/node_modules", "pnpm-lock.yaml", "**/.vitepress/cache"],
   },
 
   /* =============== extends =============== */
