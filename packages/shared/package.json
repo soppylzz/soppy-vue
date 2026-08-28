@@ -26,7 +26,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/source-readers/soppy-vue.git",
+    "url": "git+https://github.com/soppylzz/soppy-vue.git",
     "directory": "packages/shared"
   },
   "keywords": [
