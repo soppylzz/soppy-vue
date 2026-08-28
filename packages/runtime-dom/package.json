@@ -1,6 +1,6 @@
 {
   "name": "@soppy-vue/runtime-dom",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Vue-like runtime implementation for browser",
   "type": "module",
   "main": "./dist/index.mjs",

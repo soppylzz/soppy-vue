@@ -1,6 +1,6 @@
 {
   "name": "@soppy-vue/shared",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Shared utils across @soppy-vue/*",
   "type": "module",
   "main": "./dist/index.mjs",
