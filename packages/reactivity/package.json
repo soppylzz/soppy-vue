@@ -1,6 +1,6 @@
 {
   "name": "@soppy-vue/reactivity",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Vue-like implementation of reactivity",
   "type": "module",
   "main": "./dist/index.mjs",

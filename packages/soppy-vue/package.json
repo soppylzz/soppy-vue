@@ -1,6 +1,6 @@
 {
   "name": "soppy-vue",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "A Vue like framework for learning and understanding the core principles of Vue.js.",
   "type": "module",
   "main": "./dist/index.mjs",
