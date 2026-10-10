@@ -1,32 +1,41 @@
-<h1 align="center"><img width="35%" src="./assets/wordmark.png" alt="soppy-vue" /></h1>
+<h1 align="center"><img width="60%" src="./assets/wordmark.png" alt="soppy-vue"/></h1>
 
-A source code reading project based on `vue@3.4`, aiming to build a Vue-like implementation from scratch.
+<p align="center">
+  <a href="https://www.npmjs.com/package/soppy-vue"><img src="https://img.shields.io/npm/v/soppy-vue" alt="soppy-vue on npm" /></a>
+  <img src="https://img.shields.io/badge/TypeScript-3178C6" alt="TypeScript" />
+</p>
+
+<div align="center">
+
+[English](README.md) | [简体中文](README.zh-cn.md)
+
+</div>
+
+A small Vue-like framework built in TypeScript to explore Vue 3.4's reactivity and rendering concepts. Install the published package to try the API, or follow the source and tutorials to study its implementation.
 
 ## Features
 
 - 🧬 **A minimal Vue** — re-implements reactivity and runtime with minimal code, following the core mechanisms of Vue.
 - 🟦 **TypeScript friendly** — precise type inference and type guards, with full IDE completion support.
-- 🤖 **Agent-driven tests** — vitest specs covering the runtime internals.
+- **Runtime tests** — Vitest specs covering the runtime internals.
 - 📖 **Tutorial docs** — step-by-step breakdown from environment setup, reactivity to the Diff algorithm.
 
 ## Tutorials
 
-The build process and source code analysis are located in the `/tutorials` directory, organized into chapters following the build workflow:
+The source walkthrough lives in [`tutorials`](./tutorials):
 
-| Directory               | Content                              |
-| ----------------------- | ------------------------------------ |
-| `/tutorials/prepare`    | Engineering Setup (Env, Lint, CI/CD) |
-| `/tutorials/reactivity` | Reactivity System (Proxy, Computed)  |
-| `/tutorials/runtime`    | Runtime (DOM, Diff)                  |
+| Directory                                                | Content                   |
+| -------------------------------------------------------- | ------------------------- |
+| [`prepare`](./tutorials/tutorials/prepare/intro.md)      | Engineering setup         |
+| [`reactivity`](./tutorials/tutorials/reactivity/base.md) | Proxy and computed        |
+| [`runtime`](./tutorials/tutorials/runtime/intro.md)      | DOM rendering and diffing |
 
 ## Installation
 
-You can install via npm / pnpm / yarn:
+Install the published package:
 
 ```bash
-npm install soppy-vue
 pnpm add soppy-vue
-yarn add soppy-vue
 ```
 
 ### CDN
@@ -51,4 +60,4 @@ This is a pnpm monorepo. The framework is split into several packages, mirroring
 
 ## License
 
-This project is licensed under the [MIT LICENSE](./LICENSE).
+[MIT](./LICENSE).
